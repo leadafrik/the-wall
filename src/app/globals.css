@@ -239,6 +239,16 @@ button {
   background: rgba(0, 0, 0, 0.08);
 }
 
+.filter__pill--shuffle {
+  font-style: italic;
+  opacity: 0.68;
+  border: none;
+  font-family: 'Lora', Georgia, serif;
+}
+
+.filter__pill--shuffle:hover { opacity: 1; }
+.filter__pill--shuffle:disabled { opacity: 0.4; cursor: default; }
+
 /* -------- Composer trigger + overlay -------- */
 
 .composer-trigger {

@@ -7,11 +7,24 @@ import type { Section } from '@/types';
 
 interface Props {
   active: Section | null;
+  onShuffle?: () => void;
+  shuffling?: boolean;
 }
 
-export function SectionFilter({ active }: Props) {
+export function SectionFilter({ active, onShuffle, shuffling }: Props) {
   return (
     <nav className="filter" aria-label="filter by section">
+      {onShuffle && (
+        <button
+          type="button"
+          className="filter__pill filter__pill--shuffle"
+          onClick={onShuffle}
+          disabled={shuffling}
+          aria-label="shuffle the wall"
+        >
+          {shuffling ? '…' : 'shuffle'}
+        </button>
+      )}
       <Link
         href="/"
         className={`filter__pill${active === null ? ' filter__pill--active' : ''}`}

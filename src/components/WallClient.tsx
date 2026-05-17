@@ -354,6 +354,30 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
     setPan(clampPan({ x: targetPanX, y: targetPanY }, zoom, viewport.w, viewport.h));
   }
 
+  const [shuffling, setShuffling] = useState(false);
+
+  async function handleShuffle() {
+    if (shuffling) return;
+    setShuffling(true);
+    try {
+      const params = activeSection ? `?section=${encodeURIComponent(activeSection)}` : '';
+      const res = await fetch(`/api/notes/shuffle${params}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const body = (await res.json()) as { notes: NoteData[] };
+      if (!body.notes?.length) return;
+      setNotes(body.notes);
+      // Pan to a random note from the new set so the page visibly refreshes.
+      const target = body.notes[Math.floor(Math.random() * body.notes.length)];
+      const targetPanX = viewport.w / 2 - target.x * zoom;
+      const targetPanY = viewport.h / 2 - target.y * zoom;
+      setArrowAnimating(true);
+      setPan({ x: targetPanX, y: targetPanY });
+      window.setTimeout(() => setArrowAnimating(false), 220);
+    } finally {
+      setShuffling(false);
+    }
+  }
+
   return (
     <>
       <div
@@ -394,7 +418,11 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         )}
       </div>
 
-      <SectionFilter active={activeSection} />
+      <SectionFilter
+        active={activeSection}
+        onShuffle={handleShuffle}
+        shuffling={shuffling}
+      />
       <Composer defaultSection={activeSection} onPosted={handlePosted} />
 
       {expanded && (
