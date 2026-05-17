@@ -28,8 +28,10 @@ const SECTION_COLORS = {
 
 const CANVAS_SIZE = 10_000;
 const CENTER = CANVAS_SIZE / 2;
-const NOTE_W = 150;
-const NOTE_H = 140;
+const MIN_SPACING = 180;   // center-to-center distance that prevents text-covering overlap
+const MIN_OFFSET = 200;
+const MAX_OFFSET = 360;
+const MAX_ATTEMPTS = 40;
 
 const NOTES = [
   // venting
@@ -87,8 +89,12 @@ function randBetween(min, max) {
   return Math.random() * (max - min) + min;
 }
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
+// Mirror of src/lib/placement.ts — no edge clamp (the wall scrolls forever),
+// stricter collision check so notes don't cover each other's text.
+function overlaps(existing, x, y) {
+  return existing.some(
+    (n) => Math.abs(n.x - x) < MIN_SPACING && Math.abs(n.y - y) < MIN_SPACING,
+  );
 }
 
 function pickPlacement(existing) {
@@ -96,37 +102,61 @@ function pickPlacement(existing) {
   const z_index = Math.floor(Math.random() * 1000);
   if (existing.length === 0) {
     return {
-      x: Math.round(CENTER + randBetween(-300, 300)),
-      y: Math.round(CENTER + randBetween(-300, 300)),
+      x: Math.round(CENTER + randBetween(-200, 200)),
+      y: Math.round(CENTER + randBetween(-200, 200)),
       rotation,
       z_index,
     };
   }
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const anchor = existing[Math.floor(Math.random() * existing.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = randBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 12;
+    const x = Math.round(anchor.x + Math.cos(angle) * distance);
+    const y = Math.round(anchor.y + Math.sin(angle) * distance);
+    if (!overlaps(existing, x, y)) {
+      return { x, y, rotation, z_index };
+    }
+  }
+  // Last resort: push way out into fresh territory.
   const anchor = existing[Math.floor(Math.random() * existing.length)];
   const angle = Math.random() * Math.PI * 2;
-  const distance = randBetween(90, 230);
+  const distance = MAX_OFFSET + MAX_ATTEMPTS * 12 + randBetween(0, 200);
   return {
-    x: clamp(Math.round(anchor.x + Math.cos(angle) * distance), NOTE_W, CANVAS_SIZE - NOTE_W),
-    y: clamp(Math.round(anchor.y + Math.sin(angle) * distance), NOTE_H, CANVAS_SIZE - NOTE_H),
+    x: Math.round(anchor.x + Math.cos(angle) * distance),
+    y: Math.round(anchor.y + Math.sin(angle) * distance),
     rotation,
     z_index,
   };
 }
 
 async function main() {
+  const reset = process.argv.includes('--reset');
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Refuse to seed twice. If any seed notes already exist, bail early.
   const { count: existingSeedCount } = await supabase
     .from('notes')
     .select('id', { count: 'exact', head: true })
     .eq('ip_hash', 'seed');
+
   if ((existingSeedCount ?? 0) > 0) {
-    console.error(`already seeded — found ${existingSeedCount} seed notes. delete them first:`);
-    console.error(`  delete from notes where ip_hash = 'seed';`);
-    process.exit(1);
+    if (!reset) {
+      console.error(`already seeded — found ${existingSeedCount} seed notes.`);
+      console.error(`re-run with --reset to wipe and re-seed:`);
+      console.error(`  node --env-file=.env.local scripts/seed.mjs --reset`);
+      process.exit(1);
+    }
+    console.log(`--reset: deleting ${existingSeedCount} existing seed notes…`);
+    const { error: delErr } = await supabase
+      .from('notes')
+      .delete()
+      .eq('ip_hash', 'seed');
+    if (delErr) {
+      console.error('delete failed:', delErr.message);
+      process.exit(1);
+    }
   }
 
   // Anchor new placements off whatever notes already exist (none, or real user notes).

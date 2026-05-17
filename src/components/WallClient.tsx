@@ -105,16 +105,10 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
   }, []);
 
   // -------- Pan helpers --------
-  function clampPan(p: { x: number; y: number }, z: number, vw: number, vh: number) {
-    // Keep the canvas within reasonable bounds: edges may pan up to half a viewport offscreen.
-    const minX = -CANVAS_SIZE * z + vw / 2;
-    const maxX = vw / 2;
-    const minY = -CANVAS_SIZE * z + vh / 2;
-    const maxY = vh / 2;
-    return {
-      x: Math.max(minX, Math.min(maxX, p.x)),
-      y: Math.max(minY, Math.min(maxY, p.y)),
-    };
+  // The wall scrolls infinitely — no edge clamp. Identity function for now,
+  // kept so callers don't have to special-case "no clamp".
+  function clampPan(p: { x: number; y: number }, _z: number, _vw: number, _vh: number) {
+    return p;
   }
 
   // -------- Mouse drag pan --------
