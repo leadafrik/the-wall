@@ -34,7 +34,7 @@ async function loadSectionNotes(section: string): Promise<Note[]> {
       .eq('is_visible', true)
       .eq('section', section)
       .order('created_at', { ascending: false })
-      .limit(2000);
+      .limit(200);
     return (data as Note[] | null) ?? [];
   } catch {
     return [];

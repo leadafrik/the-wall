@@ -46,7 +46,7 @@ async function loadNoteAndContext(
       .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
       .eq('is_visible', true)
       .order('created_at', { ascending: false })
-      .limit(2000);
+      .limit(200);
 
     const all: Note[] = (rest as Note[] | null) ?? [];
     if (!all.some((n) => n.id === focus.id)) all.unshift(focus as Note);

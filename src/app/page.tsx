@@ -17,7 +17,7 @@ async function loadNotes(): Promise<Note[]> {
       .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
       .eq('is_visible', true)
       .order('created_at', { ascending: false })
-      .limit(2000);
+      .limit(200);
     return (data as Note[] | null) ?? [];
   } catch {
     return [];

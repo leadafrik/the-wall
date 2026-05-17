@@ -49,3 +49,34 @@ create index if not exists moderation_log_reason_idx on moderation_log (reason, 
 
 alter table moderation_log enable row level security;
 -- No policies = no anon access. Writes go through the service-role key.
+
+-- Per-IP read rate limiting (anti-scraping). One row per (ip_hash, minute)
+-- bucket. The incr_read_rate() function atomically inserts-or-increments
+-- and returns the post-update hit count, which the API checks against the
+-- per-minute limit in src/lib/read-rate-limit.ts.
+create table if not exists read_rate (
+  ip_hash text not null,
+  bucket  bigint not null,         -- floor(epoch_ms / 60000)
+  hits    integer not null default 1,
+  primary key (ip_hash, bucket)
+);
+create index if not exists read_rate_bucket_idx on read_rate (bucket);
+
+create or replace function incr_read_rate(p_ip_hash text, p_bucket bigint)
+returns integer
+language sql
+as $$
+  insert into read_rate (ip_hash, bucket, hits)
+  values (p_ip_hash, p_bucket, 1)
+  on conflict (ip_hash, bucket)
+  do update set hits = read_rate.hits + 1
+  returning hits;
+$$;
+
+alter table read_rate enable row level security;
+-- No policies = no anon access. The function is called by the API via the
+-- service role.
+
+-- Optional cleanup: prune buckets older than a day. Either run this manually
+-- once in a while or wire up pg_cron in the Supabase dashboard.
+--   delete from read_rate where bucket < floor((extract(epoch from now()) * 1000 - 86400000) / 60000);

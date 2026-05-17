@@ -3,23 +3,52 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonServer, getSupabaseServiceServer } from '@/lib/supabase-server';
 import { hashIp } from '@/lib/admin-auth';
 import { checkNoteRateLimit } from '@/lib/rate-limit';
+import { checkReadRateLimit } from '@/lib/read-rate-limit';
 import { moderateNote } from '@/lib/moderation';
 import { CANVAS_SIZE, pickNotePlacement } from '@/lib/placement';
 import { isSection, SECTION_COLORS } from '@/lib/sections';
+import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
 import type { Note } from '@/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Hard cap on the largest possible payload from a single request. Wall
+// users only see ~30 notes in viewport at once (virtualization), so this
+// cap has no effect on real UX but caps what a scraper can pull per call.
+const MAX_RETURN = 200;
+
 // GET /api/notes
 // Optional query params:
-//   section=memory                         filter to one section
-//   x1,y1,x2,y2 viewport bounds            (clamp results to a viewport)
-//   limit=500                              cap
+//   section=memory   filter to one section
+//   x1,y1,x2,y2      viewport bounds (clamp results to a viewport)
+//   limit=N          requested cap, clamped to MAX_RETURN regardless
 export async function GET(req: NextRequest) {
+  // 1. Browser session check — no valid HMAC cookie, no notes.
+  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!(await verifySessionToken(sessionToken))) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  // 2. Per-IP read rate limit.
+  const ip = clientIp(req);
+  const ipHash = hashIp(ip);
+  const service = getSupabaseServiceServer();
+  const rl = await checkReadRateLimit(service, ipHash);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'slow down — too many reads' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+      },
+    );
+  }
+
   const url = new URL(req.url);
   const section = url.searchParams.get('section');
-  const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '2000', 10) || 2000, 5000);
+  const requested = parseInt(url.searchParams.get('limit') ?? String(MAX_RETURN), 10);
+  const limit = Math.min(MAX_RETURN, Number.isFinite(requested) ? requested : MAX_RETURN);
 
   const supabase = getSupabaseAnonServer();
   let q = supabase
@@ -51,7 +80,8 @@ export async function GET(req: NextRequest) {
     { notes: data ?? [] },
     {
       headers: {
-        'Cache-Control': 's-maxage=60, stale-while-revalidate=300',
+        // Per-user cookie means we can't share this across sessions.
+        'Cache-Control': 'private, no-store',
       },
     },
   );
