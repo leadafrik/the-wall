@@ -39,20 +39,47 @@ export async function GET(req: NextRequest) {
   const sectionParam = url.searchParams.get('section');
   const sectionArg = sectionParam && isSection(sectionParam) ? sectionParam : null;
 
-  // Delegate sampling to the shuffle_notes Postgres function. It switches
-  // between `order by random()` (small tables) and TABLESAMPLE SYSTEM_ROWS
-  // (large tables) so cost stays bounded regardless of how many notes
-  // the wall accumulates.
-  const { data, error } = await service.rpc('shuffle_notes', {
+  // Prefer the shuffle_notes Postgres function — it switches between
+  // `order by random()` (small tables) and TABLESAMPLE SYSTEM_ROWS (large
+  // tables) for bounded cost as the wall grows.
+  const rpc = await service.rpc('shuffle_notes', {
     p_section: sectionArg,
     p_limit: MAX_RETURN,
   });
+
+  if (!rpc.error) {
+    return NextResponse.json(
+      { notes: rpc.data ?? [] },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  }
+
+  // Fallback when the RPC isn't installed in this Supabase project yet.
+  // Pull a pool of recent notes and shuffle in JS. Works at small scale,
+  // bounded at the pool size — install shuffle_notes for true scalability.
+  console.warn(
+    `shuffle_notes RPC unavailable (${rpc.error.message}) — using JS fallback`,
+  );
+
+  let q = service
+    .from('notes')
+    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+    .eq('is_visible', true)
+    .order('created_at', { ascending: false });
+  if (sectionArg) q = q.eq('section', sectionArg);
+
+  const { data, error } = await q.limit(MAX_RETURN * 5);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  const pool = (data ?? []).slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
 
   return NextResponse.json(
-    { notes: data ?? [] },
+    { notes: pool.slice(0, MAX_RETURN) },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }
