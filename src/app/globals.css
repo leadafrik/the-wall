@@ -137,8 +137,11 @@ button {
   transition: transform 150ms ease, box-shadow 150ms ease, z-index 0s;
   font-family: 'Caveat', cursive;
   color: #2b2724;
-  user-select: none;
   transform-origin: 50% 0%;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none; /* no long-press 'copy' popover on iOS */
 }
 
 .note:hover {
@@ -451,6 +454,10 @@ button {
     0 22px 60px rgba(0, 0, 0, 0.3);
   font-family: 'Caveat', cursive;
   color: #2b2724;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .expanded__tape {

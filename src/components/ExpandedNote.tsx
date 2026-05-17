@@ -24,6 +24,10 @@ export function ExpandedNote({ note, onClose }: Props) {
         className="expanded"
         style={{ background: note.color, transform: `rotate(${note.rotation}deg)` }}
         onClick={(e) => e.stopPropagation()}
+        onCopy={(e) => e.preventDefault()}
+        onCut={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
       >
         <div className="expanded__tape" aria-hidden />
         <div className="expanded__section">· {note.section}</div>

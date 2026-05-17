@@ -26,6 +26,10 @@ function NoteImpl({ note, faded, appear, onClick }: Props) {
         e.stopPropagation();
         onClick?.(note);
       }}
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
     >
       <div className="note__tape" aria-hidden />
       <div className="note__section">· {note.section}</div>
