@@ -330,6 +330,18 @@ button {
   color: rgba(0, 0, 0, 0.35);
 }
 
+/* Honeypot: invisible to humans, available to bots that auto-fill all inputs.
+   We avoid display:none/visibility:hidden because smarter bots skip those. */
+.composer__hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
 .composer__row {
   display: flex;
   align-items: center;

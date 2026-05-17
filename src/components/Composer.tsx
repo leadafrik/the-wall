@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SECTIONS, SECTION_COLORS } from '@/lib/sections';
 import type { Note, Section } from '@/types';
@@ -22,6 +22,10 @@ export function Composer({ defaultSection, onPosted }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [crisis, setCrisis] = useState(false);
+  // Honeypot: bots filling every input land here; humans never see it.
+  const [hp, setHp] = useState('');
+  // Time the composer opened — server rejects submits faster than 2s.
+  const openedAtRef = useRef<number>(0);
 
   useEffect(() => {
     if (defaultSection) {
@@ -32,6 +36,8 @@ export function Composer({ defaultSection, onPosted }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    openedAtRef.current = Date.now();
+    setHp('');
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
@@ -73,10 +79,17 @@ export function Composer({ defaultSection, onPosted }: Props) {
 
     setSubmitting(true);
     try {
+      const elapsedMs = Date.now() - openedAtRef.current;
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text: trimmed, section, color }),
+        body: JSON.stringify({
+          text: trimmed,
+          section,
+          color,
+          _h: hp,
+          _t: elapsedMs,
+        }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -145,11 +158,38 @@ export function Composer({ defaultSection, onPosted }: Props) {
               className="composer__text"
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, 280))}
+              onPaste={(e) => {
+                e.preventDefault();
+                setError('paste is off — type it yourself.');
+                setTimeout(() => setError(null), 2000);
+              }}
+              onDrop={(e) => e.preventDefault()}
+              onContextMenu={(e) => e.preventDefault()}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="write something..."
               autoFocus
               maxLength={280}
               rows={5}
             />
+
+            {/* Honeypot — hidden from humans, irresistible to dumb bots. */}
+            <label
+              className="composer__hp"
+              aria-hidden="true"
+              tabIndex={-1}
+            >
+              website
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                value={hp}
+                onChange={(e) => setHp(e.target.value)}
+              />
+            </label>
 
             <div className="composer__row">
               <div className="composer__colors">

@@ -8,6 +8,11 @@ import {
 
 export const runtime = 'nodejs';
 
+// Artificial delay on every wrong-password attempt. Brute force on a single
+// node now costs ≥ FAIL_DELAY_MS per guess, which makes any meaningful
+// attack against a strong password infeasible.
+const FAIL_DELAY_MS = 1500;
+
 export async function POST(req: NextRequest) {
   let body: { password?: unknown };
   try {
@@ -18,6 +23,7 @@ export async function POST(req: NextRequest) {
   const password = typeof body.password === 'string' ? body.password : '';
 
   if (!passwordMatches(password)) {
+    await new Promise((resolve) => setTimeout(resolve, FAIL_DELAY_MS));
     return NextResponse.json({ error: 'wrong password' }, { status: 401 });
   }
 

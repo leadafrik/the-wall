@@ -74,11 +74,39 @@ export async function POST(req: NextRequest) {
 async function handlePost(req: NextRequest) {
   const ip = clientIp(req);
 
-  let body: { text?: unknown; section?: unknown; color?: unknown };
+  // Origin check — cross-site bots tend not to set / spoof Origin properly.
+  // Same-origin browser submissions always send a matching Origin header.
+  if (!originAllowed(req)) {
+    logRejection('bad_origin', 0).catch(() => {});
+    return NextResponse.json({ error: 'bad request' }, { status: 403 });
+  }
+
+  let body: {
+    text?: unknown;
+    section?: unknown;
+    color?: unknown;
+    _h?: unknown;
+    _t?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+  }
+
+  // Honeypot: any value here = bot. Respond with a generic 200-ish lie so
+  // the bot doesn't learn its honeypot was the trigger.
+  if (typeof body._h === 'string' && body._h.length > 0) {
+    logRejection('honeypot', 0).catch(() => {});
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+
+  // Min time to submit — a real person cannot read, pick a section, write 20+
+  // characters, and click in under ~2 seconds. Bots can.
+  const timeOpen = typeof body._t === 'number' ? body._t : 0;
+  if (timeOpen < 2000) {
+    logRejection('too_fast', 0).catch(() => {});
+    return NextResponse.json({ error: 'slow down' }, { status: 429 });
   }
 
   const rawText = typeof body.text === 'string' ? body.text : '';
@@ -186,6 +214,38 @@ function clientIp(req: NextRequest): string {
   const real = req.headers.get('x-real-ip');
   if (real) return real.trim();
   return '127.0.0.1';
+}
+
+// Accept the request only if Origin (or Referer as a fallback) matches the
+// site we're being served from. Same-origin browser submits always do; most
+// drive-by API spam doesn't bother.
+function originAllowed(req: NextRequest): boolean {
+  const origin = req.headers.get('origin');
+  const referer = req.headers.get('referer');
+  const host = req.headers.get('host');
+  if (!host) return false;
+
+  const allowed = new Set<string>([
+    `http://${host}`,
+    `https://${host}`,
+  ]);
+  // Production canonical
+  allowed.add('https://humanitywall.org');
+  allowed.add('https://www.humanitywall.org');
+
+  if (origin) return allowed.has(origin);
+  if (referer) {
+    try {
+      const r = new URL(referer);
+      return allowed.has(`${r.protocol}//${r.host}`);
+    } catch {
+      return false;
+    }
+  }
+  // Some same-origin XHRs from older browsers don't send Origin/Referer.
+  // We err on the side of allowing if both are missing — the other gates
+  // (honeypot, time-to-submit, rate limit, moderation) still apply.
+  return true;
 }
 
 function parseBounds(
