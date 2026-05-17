@@ -209,17 +209,24 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
   }, [zoom, viewport.w, viewport.h]);
 
   // -------- Wheel: two-finger trackpad pan OR pinch-zoom --------
-  // Browsers report pinch-zoom on a trackpad as a wheel event with ctrlKey
-  // synthetically set true. Everything else (two-finger swipe, mouse wheel)
-  // is a pan request. macOS / Windows precision trackpads both follow this.
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
+  // Attached imperatively (not via React's onWheel) so we can register a
+  // *non-passive* listener and preventDefault. Without that, ctrlKey+wheel
+  // also triggers the browser's own zoom — which shrinks every fixed-position
+  // element (composer, filter, header) right out of view.
+  //
+  // Browsers report trackpad pinch as wheel + ctrlKey true. Two-finger swipe
+  // and mouse-wheel are wheel without ctrlKey. macOS / Windows precision
+  // trackpads both follow this.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function onWheelNative(e: WheelEvent) {
+      e.preventDefault();
+      const target = containerRef.current;
+      if (!target) return;
 
       if (e.ctrlKey) {
-        // Pinch-zoom — anchor on cursor.
-        const rect = el.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
         const cx = e.clientX - rect.left;
         const cy = e.clientY - rect.top;
         const factor = Math.exp(-e.deltaY * 0.012);
@@ -235,15 +242,14 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         return;
       }
 
-      // Two-finger pan / mouse wheel: subtract delta so content moves with
-      // the gesture (swipe right → wall pans right → reveals what was left).
       setPan((p) => ({
         x: p.x - e.deltaX * WHEEL_PAN_FACTOR,
         y: p.y - e.deltaY * WHEEL_PAN_FACTOR,
       }));
-    },
-    [],
-  );
+    }
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, []);
 
   // -------- Touch: single-finger pan, two-finger pinch --------
   const touchRef = useRef<
@@ -354,7 +360,6 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         ref={containerRef}
         className={`wall${isDragging ? ' wall--dragging' : ''}`}
         onMouseDown={onMouseDown}
-        onWheel={onWheel}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
