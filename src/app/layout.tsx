@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://humanitywall.org'),
   title: 'the wall',
   description:
     'an anonymous, public, living archive of human expression. no names, no accounts — just words left on a wall.',
@@ -10,7 +11,14 @@ export const metadata: Metadata = {
     title: 'the wall',
     description:
       'an anonymous, public, living archive of human expression.',
+    url: 'https://humanitywall.org',
+    siteName: 'the wall',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'the wall',
+    description: 'an anonymous, public, living archive of human expression.',
   },
 };
 

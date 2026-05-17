@@ -8,12 +8,21 @@ export const SECTIONS: Section[] = [
   'confessions',
 ];
 
+// Per-section palette. Each section has a clear emotional hue, with five
+// shades that progress from pale to saturated so swatches read as distinct
+// choices — not five flavors of "kinda the same color".
+//
+//   venting        warm yellows → honey → amber  (heat, frustration)
+//   ideas          mint → sage → pistachio       (fresh, growing)
+//   memory         peach → apricot → terracotta  (faded photo, warmth)
+//   things unsaid  blush → dusty rose → mauve    (tender, intimate)
+//   confessions    pale lavender → plum          (quiet, weighted)
 export const SECTION_COLORS: Record<Section, string[]> = {
-  venting:         ['#fffde7', '#fff9c4', '#fff59d', '#fdf3b5', '#f5ecc1'],
-  ideas:           ['#e8f5e9', '#dcedc8', '#c8e6c9', '#d8e6c8', '#e0ecd6'],
-  memory:          ['#fff3e0', '#ffe6c4', '#ffd9a8', '#ffccbc', '#fbe5d0'],
-  'things unsaid': ['#fce4ec', '#fad0d6', '#f8bbd0', '#f5a8c0', '#f3c5cf'],
-  confessions:     ['#ede7f6', '#dfd5eb', '#d1c4e9', '#c2afe0', '#cdbce0'],
+  venting:         ['#fffbe6', '#fff2a1', '#ffe066', '#f0d878', '#e8c547'],
+  ideas:           ['#edf7ed', '#c8e6c9', '#a5d6a7', '#d4e9b8', '#b5cf90'],
+  memory:          ['#fff3e0', '#ffe0b2', '#ffccbc', '#fad7b2', '#f1c89e'],
+  'things unsaid': ['#fce4ec', '#f8bbd0', '#f4a8c0', '#edc5cf', '#e8b3c2'],
+  confessions:     ['#ede7f6', '#d1c4e9', '#b39ddb', '#c5b3df', '#bca0c7'],
 };
 
 export const SECTION_DEFAULT_COLOR: Record<Section, string> = {

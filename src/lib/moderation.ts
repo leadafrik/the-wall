@@ -86,45 +86,48 @@ export async function moderateNote(text: string): Promise<ModerationResult> {
     return { allowed: false, reason: 'contains_phone', message: PII_MESSAGE };
   }
 
-  // 6. Perspective API (toxicity) — fail open if the call fails.
-  const apiKey = process.env.PERSPECTIVE_API_KEY;
+  // 6. OpenAI moderation — fail open if the call fails.
+  // Per-category thresholds: strict on the genuinely dangerous stuff, lenient
+  // on raw emotion. self-harm is intentionally NOT blocked — those notes are
+  // exactly what the wall is for, and the crisis-keyword check below surfaces
+  // a gentle support nudge instead.
+  const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(
-        `https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            comment: { text: trimmed },
-            requestedAttributes: { TOXICITY: {} },
-            languages: ['en'],
-            doNotStore: true,
-          }),
-          signal: controller.signal,
+      const res = await fetch('https://api.openai.com/v1/moderations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
         },
-      );
+        body: JSON.stringify({
+          model: 'omni-moderation-latest',
+          input: trimmed,
+        }),
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
       if (res.ok) {
-        const data = (await res.json()) as PerspectiveResponse;
-        const score = data.attributeScores?.TOXICITY?.summaryScore?.value ?? 0;
-        if (score > 0.85) {
+        const data = (await res.json()) as OpenAIModerationResponse;
+        const scores = data.results?.[0]?.category_scores ?? {};
+        const breach = findThresholdBreach(scores);
+        if (breach) {
           return {
             allowed: false,
-            reason: `toxicity_score_${score.toFixed(2)}`,
+            reason: `openai_${breach.category.replace(/[\/]/g, '_')}_${breach.score.toFixed(2)}`,
             message:
               "this one didn't make it to the wall — the wall is for honesty, not harm.",
           };
         }
       } else {
         console.error(
-          `Perspective API non-OK response: ${res.status} — failing open`,
+          `OpenAI moderation non-OK response: ${res.status} — failing open`,
         );
       }
     } catch (err) {
-      console.error('Perspective API error — failing open:', err);
+      console.error('OpenAI moderation error — failing open:', err);
     }
   }
 
@@ -135,10 +138,38 @@ export async function moderateNote(text: string): Promise<ModerationResult> {
   return { allowed: true, crisisDetected };
 }
 
-interface PerspectiveResponse {
-  attributeScores?: {
-    TOXICITY?: {
-      summaryScore?: { value?: number };
-    };
-  };
+// Per-category block thresholds. Tuning notes:
+//   * threatening variants are stricter than the parent category
+//   * sexual/minors is near-zero tolerance
+//   * self-harm intentionally omitted — handled by CRISIS_KEYWORDS as a soft nudge
+const BLOCK_THRESHOLDS: Record<string, number> = {
+  hate: 0.85,
+  'hate/threatening': 0.5,
+  harassment: 0.85,
+  'harassment/threatening': 0.5,
+  sexual: 0.85,
+  'sexual/minors': 0.3,
+  violence: 0.9,
+  'violence/graphic': 0.85,
+  illicit: 0.9,
+  'illicit/violent': 0.85,
+};
+
+function findThresholdBreach(
+  scores: Record<string, number>,
+): { category: string; score: number } | null {
+  for (const [category, threshold] of Object.entries(BLOCK_THRESHOLDS)) {
+    const score = scores[category];
+    if (typeof score === 'number' && score > threshold) {
+      return { category, score };
+    }
+  }
+  return null;
+}
+
+interface OpenAIModerationResponse {
+  results?: {
+    flagged?: boolean;
+    category_scores?: Record<string, number>;
+  }[];
 }

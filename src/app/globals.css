@@ -211,20 +211,22 @@ button {
 
 .filter__pill {
   font-family: 'Lora', Georgia, serif;
-  font-size: 12px;
+  font-size: 12.5px;
   padding: 6px 12px;
   border-radius: 999px;
-  opacity: 0.55;
+  opacity: 0.78;
+  color: #1f1c19;
   transition: opacity 150ms ease, background 150ms ease;
 }
 
 .filter__pill:hover {
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .filter__pill--active {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.06);
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* -------- Composer trigger + overlay -------- */

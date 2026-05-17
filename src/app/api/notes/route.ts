@@ -112,20 +112,11 @@ async function handlePost(req: NextRequest) {
 
   const trimmed = rawText.trim();
   const ipHash = hashIp(ip);
-
-  // Duplicate guard: same normalized text from the same hashed IP within the last hour.
-  // Cuts down on accidental double-submits and copy-paste spam.
   const service = getSupabaseServiceServer();
-  if (await isDuplicateRecent(service, ipHash, trimmed)) {
-    return NextResponse.json(
-      {
-        error: "you already posted that one — try saying something new.",
-      },
-      { status: 422 },
-    );
-  }
 
-  const rl = await checkNoteRateLimit(ip);
+  // Per-IP rate limit (1 note / hour) — subsumes the prior duplicate guard
+  // since you can't repeat a note when you can't post at all.
+  const rl = await checkNoteRateLimit(service, ipHash);
   if (!rl.ok) {
     return NextResponse.json(
       {
@@ -187,27 +178,6 @@ async function logRejection(reason: string, textLength: number): Promise<void> {
   } catch {
     // Best-effort. If the table doesn't exist or env vars are missing, do nothing.
   }
-}
-
-function normalize(text: string): string {
-  return text.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-async function isDuplicateRecent(
-  service: ReturnType<typeof getSupabaseServiceServer>,
-  ipHash: string,
-  text: string,
-): Promise<boolean> {
-  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { data, error } = await service
-    .from('notes')
-    .select('text')
-    .eq('ip_hash', ipHash)
-    .gte('created_at', since)
-    .limit(50);
-  if (error || !data) return false;
-  const target = normalize(text);
-  return data.some((row: { text: string }) => normalize(row.text) === target);
 }
 
 function clientIp(req: NextRequest): string {
