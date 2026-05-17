@@ -19,7 +19,14 @@ interface Props {
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 const DRAG_THRESHOLD_PX = 4;
-const VIRTUALIZE_BUFFER_PX = 300;
+// Buffer past the visible viewport for rendering notes. Bigger = fewer
+// notes flash in at the edges during fast pans, more notes mounted at once.
+const VIRTUALIZE_BUFFER_PX = 600;
+// Pixels per arrow-key press (in canvas coords, before zoom).
+const ARROW_STEP_PX = 160;
+// Multiplier on trackpad/wheel deltas for two-finger pan. Tuned so a normal
+// macOS swipe feels like the wall is moving with your fingers.
+const WHEEL_PAN_FACTOR = 1;
 
 const HINT_SEEN_KEY = 'wall_hint_seen_v1';
 
@@ -28,6 +35,7 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<NoteData | null>(initialFocus ?? null);
   const [hintVisible, setHintVisible] = useState(false);
+  const [arrowAnimating, setArrowAnimating] = useState(false);
 
   // Pan/zoom state. translate-then-scale, transform-origin: 0 0.
   const [zoom, setZoom] = useState(1);
@@ -89,6 +97,48 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // -------- Arrow-key panning (smooth) --------
+  // Each press nudges the wall by ARROW_STEP_PX in canvas coords. We toggle
+  // a CSS transition on the canvas for ~180ms so it eases instead of jumping
+  // — and we don't run it during drag/wheel so those stay instant.
+  const arrowTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Don't steal arrow keys when the user is typing in the composer.
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      let dx = 0;
+      let dy = 0;
+      switch (e.key) {
+        case 'ArrowLeft':  dx =  ARROW_STEP_PX; break;
+        case 'ArrowRight': dx = -ARROW_STEP_PX; break;
+        case 'ArrowUp':    dy =  ARROW_STEP_PX; break;
+        case 'ArrowDown':  dy = -ARROW_STEP_PX; break;
+        default: return;
+      }
+      e.preventDefault();
+      setArrowAnimating(true);
+      setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+      window.clearTimeout(arrowTimerRef.current);
+      arrowTimerRef.current = window.setTimeout(
+        () => setArrowAnimating(false),
+        200,
+      );
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.clearTimeout(arrowTimerRef.current);
+    };
   }, []);
 
   // -------- One-time drag hint --------
@@ -158,30 +208,41 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
     };
   }, [zoom, viewport.w, viewport.h]);
 
-  // -------- Wheel zoom (centered on cursor) --------
+  // -------- Wheel: two-finger trackpad pan OR pinch-zoom --------
+  // Browsers report pinch-zoom on a trackpad as a wheel event with ctrlKey
+  // synthetically set true. Everything else (two-finger swipe, mouse wheel)
+  // is a pan request. macOS / Windows precision trackpads both follow this.
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       const el = containerRef.current;
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      const factor = Math.exp(-e.deltaY * 0.0015);
-      setZoom((z) => {
-        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor));
-        const ratio = next / z;
-        setPan((p) =>
-          clampPan(
-            { x: cx - (cx - p.x) * ratio, y: cy - (cy - p.y) * ratio },
-            next,
-            viewport.w,
-            viewport.h,
-          ),
-        );
-        return next;
-      });
+
+      if (e.ctrlKey) {
+        // Pinch-zoom — anchor on cursor.
+        const rect = el.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const factor = Math.exp(-e.deltaY * 0.012);
+        setZoom((z) => {
+          const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor));
+          const ratio = next / z;
+          setPan((p) => ({
+            x: cx - (cx - p.x) * ratio,
+            y: cy - (cy - p.y) * ratio,
+          }));
+          return next;
+        });
+        return;
+      }
+
+      // Two-finger pan / mouse wheel: subtract delta so content moves with
+      // the gesture (swipe right → wall pans right → reveals what was left).
+      setPan((p) => ({
+        x: p.x - e.deltaX * WHEEL_PAN_FACTOR,
+        y: p.y - e.deltaY * WHEEL_PAN_FACTOR,
+      }));
     },
-    [viewport.w, viewport.h],
+    [],
   );
 
   // -------- Touch: single-finger pan, two-finger pinch --------
@@ -299,7 +360,7 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         onTouchEnd={onTouchEnd}
       >
         <div
-          className="wall__canvas"
+          className={`wall__canvas${arrowAnimating ? ' wall__canvas--easing' : ''}`}
           style={{
             width: CANVAS_SIZE,
             height: CANVAS_SIZE,
