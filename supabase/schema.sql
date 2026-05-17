@@ -80,3 +80,49 @@ alter table read_rate enable row level security;
 -- Optional cleanup: prune buckets older than a day. Either run this manually
 -- once in a while or wire up pg_cron in the Supabase dashboard.
 --   delete from read_rate where bucket < floor((extract(epoch from now()) * 1000 - 86400000) / 60000);
+
+-- Scalable shuffle. Two strategies based on table size:
+--   * Small tables (< 5k rows): plain `order by random()` — gives truly uniform
+--     sampling and is cheap when the table fits comfortably in memory.
+--   * Large tables: TABLESAMPLE SYSTEM_ROWS pulls a bounded number of rows from
+--     random disk pages — O(table_pages_sampled), independent of total size.
+--     We oversample 20× the limit and then shuffle/filter so the per-section
+--     filter still has enough material.
+--
+-- Requires the standard `tsm_system_rows` extension (free, built into Postgres).
+create extension if not exists tsm_system_rows;
+
+create or replace function shuffle_notes(
+  p_section text default null,
+  p_limit   int default 200
+)
+returns setof notes
+language plpgsql
+stable
+as $$
+declare
+  total bigint;
+begin
+  select count(*) into total from notes;
+
+  if total < 5000 then
+    return query
+      select *
+      from notes
+      where is_visible = true
+        and (p_section is null or section = p_section)
+      order by random()
+      limit p_limit;
+  else
+    return query
+      select *
+      from (
+        select * from notes tablesample system_rows(p_limit * 20)
+      ) s
+      where s.is_visible = true
+        and (p_section is null or s.section = p_section)
+      order by random()
+      limit p_limit;
+  end if;
+end;
+$$;

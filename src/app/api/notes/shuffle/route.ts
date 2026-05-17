@@ -36,42 +36,25 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
-  const section = url.searchParams.get('section');
+  const sectionParam = url.searchParams.get('section');
+  const sectionArg = sectionParam && isSection(sectionParam) ? sectionParam : null;
 
-  // Pull a pool of recent notes from the DB, shuffle client-side, take 200.
-  // True SQL random sampling (`order by random()`) would need a Postgres
-  // function — overkill at the wall's expected scale. The pool size (1000)
-  // is the max breadth a shuffle can ever reach without that upgrade.
-  let q = service
-    .from('notes')
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
-    .eq('is_visible', true)
-    .order('created_at', { ascending: false });
-
-  if (section && isSection(section)) {
-    q = q.eq('section', section);
-  }
-
-  const { data, error } = await q.limit(MAX_RETURN * 5);
+  // Delegate sampling to the shuffle_notes Postgres function. It switches
+  // between `order by random()` (small tables) and TABLESAMPLE SYSTEM_ROWS
+  // (large tables) so cost stays bounded regardless of how many notes
+  // the wall accumulates.
+  const { data, error } = await service.rpc('shuffle_notes', {
+    p_section: sectionArg,
+    p_limit: MAX_RETURN,
+  });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const pool = data ?? [];
-  shuffleInPlace(pool);
-  const picked = pool.slice(0, MAX_RETURN);
-
   return NextResponse.json(
-    { notes: picked },
+    { notes: data ?? [] },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
-}
-
-function shuffleInPlace<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
 }
 
 function clientIp(req: NextRequest): string {
