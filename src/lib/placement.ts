@@ -1,37 +1,34 @@
 // Where to pin the next note on the wall.
 //
 // The wall scrolls infinitely (no edge clamp), but notes always anchor near
-// an existing note so the populated area stays cohesive instead of drifting
-// off into nothing.
+// an existing note so the populated area stays cohesive.
 //
-// Placement rules:
-//   * notes never visually overlap (a sticky covering another sticky's text
-//     is unreadable, even though some corner-touching is allowed)
-//   * spread far enough to feel like a real wall, close enough to feel dense
-//   * the canvas is virtually infinite, so x/y are unbounded
+// Rule: a new note is never allowed to cover another note's text. We treat
+// each note as an axis-aligned bounding box and reject any placement whose
+// box would intersect an existing note's box. A tiny margin (~10px each
+// way) absorbs the bounding-box stretch caused by rotation up to ±4°.
 
 import type { Note } from '@/types';
 
-// Kept as a centering anchor for the initial viewport. Doesn't bound placement.
 export const CANVAS_SIZE = 10_000;
-
 export const NOTE_WIDTH = 150;
-// A 280-char note at 17px / 1.4 line-height runs ~220-240px. Use the upper
-// bound so spacing logic plans for the worst case, not the average.
-export const NOTE_HEIGHT_APPROX = 240;
+export const NOTE_HEIGHT_APPROX = 240; // worst-case tall multi-line note
+
+// Center-to-center distances at or above which two notes can't visually
+// overlap. Asymmetric because notes are taller than they are wide.
+const NO_OVERLAP_X = 160; // 150 + 10 for rotation slack
+const NO_OVERLAP_Y = 250; // 240 + 10 for rotation slack
+
+// Starting search radius for the next note's anchor offset. Must be ≥ the
+// largest no-overlap distance or the first ring is guaranteed to fail.
+const MIN_OFFSET = 280;
+const MAX_OFFSET = 460;
+
+// Cap on attempts, then a hard escape hatch that pushes far enough to be
+// guaranteed clear of any anchor cluster.
+const MAX_ATTEMPTS = 60;
 
 const CENTER = CANVAS_SIZE / 2;
-
-// Center-to-center minimum that prevents text-covering overlap even for the
-// tallest possible note. Tuned against NOTE_HEIGHT_APPROX above; lowering it
-// reintroduces the "stickies cover each other" bug.
-const MIN_SPACING = 240;
-// Search radius for anchoring near an existing note. Must be ≥ MIN_SPACING
-// or the first candidate is guaranteed to fail the overlap check.
-const MIN_OFFSET = 260;
-const MAX_OFFSET = 440;
-// How many random candidates to try before giving up on collision avoidance.
-const MAX_ATTEMPTS = 40;
 
 interface Candidate {
   x: number;
@@ -53,38 +50,58 @@ export function pickNotePlacement(existing: Note[]): Candidate {
     };
   }
 
+  // Try increasing rings around random anchors until a non-overlapping spot
+  // is found. Each failed attempt widens the search so we eventually escape
+  // dense clusters instead of churning.
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const anchor = existing[Math.floor(Math.random() * existing.length)];
     const angle = Math.random() * Math.PI * 2;
-    // Push further out as attempts fail — we keep widening the search until
-    // we find an unoccupied spot.
-    const distance = randomBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 12;
+    const distance =
+      randomBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 24;
     const x = Math.round(anchor.x + Math.cos(angle) * distance);
     const y = Math.round(anchor.y + Math.sin(angle) * distance);
-
-    if (!overlaps(existing, x, y)) {
+    if (!overlapsAny(existing, x, y)) {
       return { x, y, rotation, z_index };
     }
   }
 
-  // Couldn't find a non-overlapping spot inside the search radius. Push way
-  // out so the new note lands in fresh territory rather than stacking on top
-  // of an existing one.
+  // Hard escape: pick the *farthest* anchor in a random direction, then go
+  // well past the cluster. This re-checks overlap because even the far
+  // ring isn't guaranteed empty.
+  for (let escape = 0; escape < 20; escape++) {
+    const anchor = existing[Math.floor(Math.random() * existing.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = MAX_OFFSET + 1500 + escape * 200 + randomBetween(0, 200);
+    const x = Math.round(anchor.x + Math.cos(angle) * distance);
+    const y = Math.round(anchor.y + Math.sin(angle) * distance);
+    if (!overlapsAny(existing, x, y)) {
+      return { x, y, rotation, z_index };
+    }
+  }
+
+  // Pathological: thousands of notes packed everywhere. Accept the last
+  // candidate. With NO_OVERLAP_X/Y honored everywhere up to this point,
+  // this only fires when the cluster has genuinely run out of room.
   const anchor = existing[Math.floor(Math.random() * existing.length)];
   const angle = Math.random() * Math.PI * 2;
-  const distance = MAX_OFFSET + MAX_ATTEMPTS * 12 + randomBetween(0, 200);
   return {
-    x: Math.round(anchor.x + Math.cos(angle) * distance),
-    y: Math.round(anchor.y + Math.sin(angle) * distance),
+    x: Math.round(anchor.x + Math.cos(angle) * 5000),
+    y: Math.round(anchor.y + Math.sin(angle) * 5000),
     rotation,
     z_index,
   };
 }
 
-function overlaps(existing: Note[], x: number, y: number): boolean {
-  return existing.some(
-    (n) => Math.abs(n.x - x) < MIN_SPACING && Math.abs(n.y - y) < MIN_SPACING,
-  );
+function overlapsAny(existing: Note[], x: number, y: number): boolean {
+  for (const n of existing) {
+    if (
+      Math.abs(n.x - x) < NO_OVERLAP_X &&
+      Math.abs(n.y - y) < NO_OVERLAP_Y
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function randomBetween(min: number, max: number): number {

@@ -28,10 +28,13 @@ const SECTION_COLORS = {
 
 const CANVAS_SIZE = 10_000;
 const CENTER = CANVAS_SIZE / 2;
-const MIN_SPACING = 180;   // center-to-center distance that prevents text-covering overlap
-const MIN_OFFSET = 200;
-const MAX_OFFSET = 360;
-const MAX_ATTEMPTS = 40;
+// Mirror of src/lib/placement.ts — asymmetric bounding boxes (notes are
+// taller than they are wide), search rings grow on every miss.
+const NO_OVERLAP_X = 160;
+const NO_OVERLAP_Y = 250;
+const MIN_OFFSET = 280;
+const MAX_OFFSET = 460;
+const MAX_ATTEMPTS = 60;
 
 const NOTES = [
   // venting
@@ -91,10 +94,13 @@ function randBetween(min, max) {
 
 // Mirror of src/lib/placement.ts — no edge clamp (the wall scrolls forever),
 // stricter collision check so notes don't cover each other's text.
-function overlaps(existing, x, y) {
-  return existing.some(
-    (n) => Math.abs(n.x - x) < MIN_SPACING && Math.abs(n.y - y) < MIN_SPACING,
-  );
+function overlapsAny(existing, x, y) {
+  for (const n of existing) {
+    if (Math.abs(n.x - x) < NO_OVERLAP_X && Math.abs(n.y - y) < NO_OVERLAP_Y) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function pickPlacement(existing) {
@@ -111,20 +117,29 @@ function pickPlacement(existing) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const anchor = existing[Math.floor(Math.random() * existing.length)];
     const angle = Math.random() * Math.PI * 2;
-    const distance = randBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 12;
+    const distance = randBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 24;
     const x = Math.round(anchor.x + Math.cos(angle) * distance);
     const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlaps(existing, x, y)) {
+    if (!overlapsAny(existing, x, y)) {
       return { x, y, rotation, z_index };
     }
   }
-  // Last resort: push way out into fresh territory.
+  // Hard escape — keep checking overlap as we push further out.
+  for (let escape = 0; escape < 20; escape++) {
+    const anchor = existing[Math.floor(Math.random() * existing.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = MAX_OFFSET + 1500 + escape * 200 + randBetween(0, 200);
+    const x = Math.round(anchor.x + Math.cos(angle) * distance);
+    const y = Math.round(anchor.y + Math.sin(angle) * distance);
+    if (!overlapsAny(existing, x, y)) {
+      return { x, y, rotation, z_index };
+    }
+  }
   const anchor = existing[Math.floor(Math.random() * existing.length)];
   const angle = Math.random() * Math.PI * 2;
-  const distance = MAX_OFFSET + MAX_ATTEMPTS * 12 + randBetween(0, 200);
   return {
-    x: Math.round(anchor.x + Math.cos(angle) * distance),
-    y: Math.round(anchor.y + Math.sin(angle) * distance),
+    x: Math.round(anchor.x + Math.cos(angle) * 5000),
+    y: Math.round(anchor.y + Math.sin(angle) * 5000),
     rotation,
     z_index,
   };
