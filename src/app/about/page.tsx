@@ -12,6 +12,16 @@ export default function About() {
         read something. move on. the wall remembers.
         <a className="about__back" href="/">← back to the wall</a>
       </div>
+
+      <footer className="about__footer">
+        <nav className="about__legal" aria-label="legal">
+          <a href="/legal/terms">terms</a>
+          <span aria-hidden>·</span>
+          <a href="/legal/privacy">privacy</a>
+          <span aria-hidden>·</span>
+          <a href="/legal/takedown">takedowns</a>
+        </nav>
+      </footer>
     </main>
   );
 }

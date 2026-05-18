@@ -575,6 +575,89 @@ button {
 
 .about__back:hover { opacity: 1; }
 
+.about {
+  flex-direction: column;
+}
+.about__footer {
+  margin-top: 36px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  opacity: 0.55;
+}
+.about__legal {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.about__legal a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+.about__legal a:hover { opacity: 1; text-decoration: underline; }
+
+/* -------- Legal pages -------- */
+
+.legal {
+  min-height: 100vh;
+  padding: 48px 24px 64px;
+  display: flex;
+  justify-content: center;
+}
+
+.legal__inner {
+  max-width: 620px;
+  width: 100%;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.7;
+  color: #1f1c19;
+}
+
+.legal__lede {
+  font-style: italic;
+  font-size: 17px;
+  opacity: 0.88;
+  margin: 0 0 28px;
+}
+
+.legal__contact {
+  font-size: 17px;
+  margin: 8px 0 32px;
+}
+
+.legal__inner h2 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  margin: 28px 0 6px;
+  opacity: 0.7;
+}
+
+.legal__inner p {
+  margin: 0 0 14px;
+}
+
+.legal__inner a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  opacity: 0.9;
+}
+.legal__inner a:hover { opacity: 1; }
+
+.legal__back {
+  display: inline-block;
+  margin-top: 32px;
+  font-family: var(--font-handwritten);
+  font-size: 18px;
+  opacity: 0.7;
+  text-decoration: none;
+}
+.legal__back:hover { opacity: 1; }
+
 /* -------- Admin -------- */
 
 .admin-login {
