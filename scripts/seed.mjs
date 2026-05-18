@@ -132,6 +132,7 @@ function pickPlacement(existing) {
 
 async function main() {
   const reset = process.argv.includes('--reset');
+  const purge = process.argv.includes('--purge');
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -141,11 +142,32 @@ async function main() {
     .select('id', { count: 'exact', head: true })
     .eq('ip_hash', 'seed');
 
+  // --purge: just delete the seeded notes and exit. Real user notes
+  // (any ip_hash that isn't literally 'seed') are untouched.
+  if (purge) {
+    if ((existingSeedCount ?? 0) === 0) {
+      console.log('no seed notes to purge — already clean.');
+      return;
+    }
+    console.log(`--purge: deleting ${existingSeedCount} seed notes…`);
+    const { error: delErr } = await supabase
+      .from('notes')
+      .delete()
+      .eq('ip_hash', 'seed');
+    if (delErr) {
+      console.error('delete failed:', delErr.message);
+      process.exit(1);
+    }
+    console.log('done.');
+    return;
+  }
+
   if ((existingSeedCount ?? 0) > 0) {
     if (!reset) {
       console.error(`already seeded — found ${existingSeedCount} seed notes.`);
-      console.error(`re-run with --reset to wipe and re-seed:`);
-      console.error(`  node --env-file=.env.local scripts/seed.mjs --reset`);
+      console.error(`options:`);
+      console.error(`  --reset  delete and re-insert the 40 seed notes`);
+      console.error(`  --purge  delete the seed notes and exit (leaves real notes)`);
       process.exit(1);
     }
     console.log(`--reset: deleting ${existingSeedCount} existing seed notes…`);

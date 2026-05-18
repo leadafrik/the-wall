@@ -16,17 +16,20 @@ import type { Note } from '@/types';
 export const CANVAS_SIZE = 10_000;
 
 export const NOTE_WIDTH = 150;
-export const NOTE_HEIGHT_APPROX = 180; // notes can run a few lines tall
+// A 280-char note at 17px / 1.4 line-height runs ~220-240px. Use the upper
+// bound so spacing logic plans for the worst case, not the average.
+export const NOTE_HEIGHT_APPROX = 240;
 
 const CENTER = CANVAS_SIZE / 2;
 
-// Minimum center-to-center distance that prevents text-covering overlap.
-// Notes are 150 wide and ~180 tall; ~180 between centers gives a small
-// corner-brush at worst, never content cover.
-const MIN_SPACING = 180;
-// Search radius for anchoring near an existing note.
-const MIN_OFFSET = 200;
-const MAX_OFFSET = 360;
+// Center-to-center minimum that prevents text-covering overlap even for the
+// tallest possible note. Tuned against NOTE_HEIGHT_APPROX above; lowering it
+// reintroduces the "stickies cover each other" bug.
+const MIN_SPACING = 240;
+// Search radius for anchoring near an existing note. Must be ≥ MIN_SPACING
+// or the first candidate is guaranteed to fail the overlap check.
+const MIN_OFFSET = 260;
+const MAX_OFFSET = 440;
 // How many random candidates to try before giving up on collision avoidance.
 const MAX_ATTEMPTS = 40;
 
