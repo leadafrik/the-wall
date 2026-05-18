@@ -583,6 +583,19 @@ button {
   font-family: var(--font-serif);
   font-size: 13px;
   opacity: 0.55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.about__contact {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+.about__contact:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 .about__legal {
   display: flex;

@@ -14,6 +14,9 @@ export default function About() {
       </div>
 
       <footer className="about__footer">
+        <a className="about__contact" href="mailto:contact@humanitywall.org">
+          contact@humanitywall.org
+        </a>
         <nav className="about__legal" aria-label="legal">
           <a href="/legal/terms">terms</a>
           <span aria-hidden>·</span>
