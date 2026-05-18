@@ -402,6 +402,14 @@ button {
   opacity: 0.5;
 }
 
+.composer__captcha {
+  margin-top: 10px;
+  min-height: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.composer__captcha:empty { display: none; }
+
 .composer__hint,
 .composer__error,
 .composer__confirm,

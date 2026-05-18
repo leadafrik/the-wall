@@ -12,6 +12,32 @@ interface Props {
 
 const SESSION_KEY = 'wall_posted_at';
 const SOFT_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script';
+const TURNSTILE_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+interface TurnstileAPI {
+  render: (
+    el: HTMLElement,
+    opts: {
+      sitekey: string;
+      callback?: (token: string) => void;
+      'expired-callback'?: () => void;
+      'error-callback'?: () => void;
+      theme?: 'light' | 'dark' | 'auto';
+      appearance?: 'always' | 'execute' | 'interaction-only';
+    },
+  ) => string;
+  remove: (widgetId: string) => void;
+  reset: (widgetId?: string) => void;
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileAPI;
+  }
+}
 
 export function Composer({ defaultSection, onPosted }: Props) {
   const [open, setOpen] = useState(false);
@@ -26,6 +52,10 @@ export function Composer({ defaultSection, onPosted }: Props) {
   const [hp, setHp] = useState('');
   // Time the composer opened — server rejects submits faster than 2s.
   const openedAtRef = useRef<number>(0);
+  // Cloudflare Turnstile state.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileSlotRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (defaultSection) {
@@ -43,6 +73,61 @@ export function Composer({ defaultSection, onPosted }: Props) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // Turnstile widget lifecycle. Only runs when the composer is open AND a
+  // site key is configured — without a key we skip entirely and the server
+  // also fails open, so dev without env vars still works.
+  useEffect(() => {
+    if (!open || !TURNSTILE_SITE_KEY) return;
+
+    // Load the script once per page.
+    if (!document.getElementById(TURNSTILE_SCRIPT_ID)) {
+      const s = document.createElement('script');
+      s.id = TURNSTILE_SCRIPT_ID;
+      s.src = TURNSTILE_SRC;
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    const tryRender = () => {
+      if (cancelled) return;
+      const api = window.turnstile;
+      if (!api || !turnstileSlotRef.current) {
+        if (attempts++ > 60) return; // ~6s
+        setTimeout(tryRender, 100);
+        return;
+      }
+      if (turnstileWidgetIdRef.current) return;
+      turnstileWidgetIdRef.current = api.render(turnstileSlotRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(null),
+        'error-callback': () => setTurnstileToken(null),
+        theme: 'light',
+        // Stay out of the way unless CF decides a challenge is needed.
+        appearance: 'interaction-only',
+      });
+    };
+    tryRender();
+
+    return () => {
+      cancelled = true;
+      const api = window.turnstile;
+      const id = turnstileWidgetIdRef.current;
+      if (api && id) {
+        try {
+          api.remove(id);
+        } catch {
+          // Widget already removed; ignore.
+        }
+      }
+      turnstileWidgetIdRef.current = null;
+      setTurnstileToken(null);
+    };
   }, [open]);
 
   function handleSectionChange(next: Section) {
@@ -76,6 +161,10 @@ export function Composer({ defaultSection, onPosted }: Props) {
       setError('too long — keep it under 280 characters');
       return;
     }
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError('still verifying — give it a second and try again');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -89,6 +178,7 @@ export function Composer({ defaultSection, onPosted }: Props) {
           color,
           _h: hp,
           _t: elapsedMs,
+          turnstileToken,
         }),
       });
       const body = await res.json();
@@ -206,6 +296,10 @@ export function Composer({ defaultSection, onPosted }: Props) {
               </div>
               <div className="composer__count">{text.length}/280</div>
             </div>
+
+            {TURNSTILE_SITE_KEY && (
+              <div ref={turnstileSlotRef} className="composer__captcha" />
+            )}
 
             {soft && <p className="composer__hint">{soft}</p>}
             {error && <p className="composer__error">{error}</p>}

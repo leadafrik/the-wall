@@ -8,6 +8,7 @@ import { moderateNote } from '@/lib/moderation';
 import { CANVAS_SIZE, pickNotePlacement } from '@/lib/placement';
 import { isSection, SECTION_COLORS } from '@/lib/sections';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
+import { verifyTurnstile } from '@/lib/turnstile';
 import type { Note } from '@/types';
 
 export const runtime = 'nodejs';
@@ -117,6 +118,7 @@ async function handlePost(req: NextRequest) {
     color?: unknown;
     _h?: unknown;
     _t?: unknown;
+    turnstileToken?: unknown;
   };
   try {
     body = await req.json();
@@ -137,6 +139,19 @@ async function handlePost(req: NextRequest) {
   if (timeOpen < 2000) {
     logRejection('too_fast', 0).catch(() => {});
     return NextResponse.json({ error: 'slow down' }, { status: 429 });
+  }
+
+  // Cloudflare Turnstile — only attempted after the cheap gates pass so we
+  // don't waste CF calls on obvious bots. Fails open if the secret isn't set.
+  const turnstileToken =
+    typeof body.turnstileToken === 'string' ? body.turnstileToken : undefined;
+  const ts = await verifyTurnstile(turnstileToken, ip);
+  if (!ts.ok) {
+    logRejection(`captcha:${ts.reason ?? 'failed'}`, 0).catch(() => {});
+    return NextResponse.json(
+      { error: 'verification failed — refresh and try again' },
+      { status: 403 },
+    );
   }
 
   const rawText = typeof body.text === 'string' ? body.text : '';
