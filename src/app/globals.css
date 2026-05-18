@@ -254,6 +254,18 @@ button {
 .filter__pill--shuffle:hover { opacity: 1; }
 .filter__pill--shuffle:disabled { opacity: 0.4; cursor: default; }
 
+.filter__pill--gentle {
+  font-style: italic;
+  opacity: 0.58;
+  border: none;
+  font-family: var(--font-serif);
+}
+.filter__pill--gentle:hover { opacity: 0.9; }
+.filter__pill--gentle.filter__pill--active {
+  opacity: 1;
+  font-style: normal;
+}
+
 /* -------- Composer trigger + overlay -------- */
 
 .composer-trigger {

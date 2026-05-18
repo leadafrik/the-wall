@@ -9,9 +9,17 @@ interface Props {
   active: Section | null;
   onShuffle?: () => void;
   shuffling?: boolean;
+  gentle?: boolean;
+  onToggleGentle?: () => void;
 }
 
-export function SectionFilter({ active, onShuffle, shuffling }: Props) {
+export function SectionFilter({
+  active,
+  onShuffle,
+  shuffling,
+  gentle,
+  onToggleGentle,
+}: Props) {
   return (
     <nav className="filter" aria-label="filter by section">
       {onShuffle && (
@@ -40,6 +48,21 @@ export function SectionFilter({ active, onShuffle, shuffling }: Props) {
           {s}
         </Link>
       ))}
+      {onToggleGentle && (
+        <button
+          type="button"
+          className={`filter__pill filter__pill--gentle${gentle ? ' filter__pill--active' : ''}`}
+          onClick={onToggleGentle}
+          aria-pressed={gentle ? 'true' : 'false'}
+          title={
+            gentle
+              ? 'gentle mode on — strongest language hidden for you'
+              : 'turn on gentle mode'
+          }
+        >
+          gentle
+        </button>
+      )}
     </nav>
   );
 }

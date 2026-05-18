@@ -7,6 +7,7 @@ import { ExpandedNote } from '@/components/ExpandedNote';
 import { Note } from '@/components/Note';
 import { SectionFilter } from '@/components/SectionFilter';
 import { CANVAS_SIZE } from '@/lib/placement';
+import { containsStrongLanguage } from '@/lib/profanity';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import type { Note as NoteData, Section } from '@/types';
 
@@ -29,6 +30,7 @@ const ARROW_STEP_PX = 160;
 const WHEEL_PAN_FACTOR = 1;
 
 const HINT_SEEN_KEY = 'wall_hint_seen_v1';
+const GENTLE_MODE_KEY = 'wall_gentle_mode_v1';
 
 export function WallClient({ initialNotes, activeSection, initialFocus }: Props) {
   const [notes, setNotes] = useState<NoteData[]>(initialNotes);
@@ -40,6 +42,28 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
   // Pan/zoom state. translate-then-scale, transform-origin: 0 0.
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState(() => initialPan(initialFocus));
+
+  // Gentle mode — reader-controlled, client-side, opt-in. Default off.
+  const [gentle, setGentle] = useState(false);
+  useEffect(() => {
+    try {
+      setGentle(window.localStorage.getItem(GENTLE_MODE_KEY) === '1');
+    } catch {
+      // localStorage unavailable (private mode etc.) — stay off.
+    }
+  }, []);
+  const toggleGentle = useCallback(() => {
+    setGentle((g) => {
+      const next = !g;
+      try {
+        if (next) window.localStorage.setItem(GENTLE_MODE_KEY, '1');
+        else window.localStorage.removeItem(GENTLE_MODE_KEY);
+      } catch {
+        // Ignore — toggle still works for this session.
+      }
+      return next;
+    });
+  }, []);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
@@ -326,16 +350,23 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
     touchRef.current = null;
   }, []);
 
+  // Apply gentle mode before virtualization so hidden notes never mount.
+  // No "N notes hidden" indicator — the whole point is a calmer surface.
+  const readableNotes = useMemo(
+    () => (gentle ? notes.filter((n) => !containsStrongLanguage(n.text)) : notes),
+    [notes, gentle],
+  );
+
   // -------- Virtualization --------
   const visibleNotes = useMemo(() => {
-    if (viewport.w === 0) return notes;
+    if (viewport.w === 0) return readableNotes;
     // Screen->canvas: x_canvas = (x_screen - pan.x) / zoom
     const x1 = (-pan.x) / zoom - VIRTUALIZE_BUFFER_PX;
     const y1 = (-pan.y) / zoom - VIRTUALIZE_BUFFER_PX;
     const x2 = (viewport.w - pan.x) / zoom + VIRTUALIZE_BUFFER_PX;
     const y2 = (viewport.h - pan.y) / zoom + VIRTUALIZE_BUFFER_PX;
-    return notes.filter((n) => n.x >= x1 && n.x <= x2 && n.y >= y1 && n.y <= y2);
-  }, [notes, pan.x, pan.y, zoom, viewport.w, viewport.h]);
+    return readableNotes.filter((n) => n.x >= x1 && n.x <= x2 && n.y >= y1 && n.y <= y2);
+  }, [readableNotes, pan.x, pan.y, zoom, viewport.w, viewport.h]);
 
   function handleNoteClick(n: NoteData) {
     if (justDraggedRef.current) {
@@ -422,6 +453,8 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         active={activeSection}
         onShuffle={handleShuffle}
         shuffling={shuffling}
+        gentle={gentle}
+        onToggleGentle={toggleGentle}
       />
       <Composer defaultSection={activeSection} onPosted={handlePosted} />
 
