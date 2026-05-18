@@ -10,8 +10,13 @@ export interface ModerationResult {
   crisisDetected?: boolean;
 }
 
+// Matches:
+//   - explicit schemes:        https://anything, http://anything
+//   - www. shortcuts:          www.anything
+//   - bare domains:            3+ chars . 2+ letter TLD  (catches .ing, .ai, .xyz...)
+// Min 3 chars before the dot prevents "e.g.", "Mr.", "U.S.A.", "2.5" from matching.
 const URL_PATTERN =
-  /https?:\/\/|www\.|[a-zA-Z0-9-]+\.(com|net|org|io|co|me|ly|gg|app|dev|xyz)/i;
+  /https?:\/\/|\bwww\.[a-z0-9]|\b[a-zA-Z0-9][a-zA-Z0-9-]{2,}\.[a-zA-Z]{2,24}\b/i;
 
 const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 
