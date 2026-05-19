@@ -7,8 +7,9 @@ export default function Takedown() {
     <main className="legal">
       <article className="legal__inner">
         <p className="legal__lede">
-          if a note is yours and you want it gone — or if a note crosses a
-          line — email us and we’ll review it.
+          if you want a note removed — because you wrote it and want it gone,
+          or because it crosses a line — email us. we read everything that
+          comes in.
         </p>
 
         <p className="legal__contact">
@@ -20,6 +21,15 @@ export default function Takedown() {
           the url of the note (visible when you click “view” on it). what the
           issue is, in a sentence or two. if it’s a copyright concern: the
           work that was copied and your relationship to it.
+        </p>
+
+        <h2>about authorship</h2>
+        <p>
+          the wall keeps everyone anonymous, including from us. we have no
+          way to confirm a note is yours. what we do is take real requests
+          seriously and ignore ones that look like bulk deletion or
+          pattern-targeted vandalism. if a note is plausibly yours and you
+          ask, it comes down.
         </p>
 
         <h2>how fast</h2>
