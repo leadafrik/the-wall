@@ -801,6 +801,14 @@ button {
 
 /* -------- Mobile tweaks -------- */
 
+/* The wall handles all touch gestures in JS — tell the browser to stay
+   out of the way so its default pinch/double-tap doesn't fight us. */
+.wall,
+.wall__canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
 @media (max-width: 640px) {
   .note { width: 160px; }
   .note__text { font-size: 16px; }
@@ -810,9 +818,18 @@ button {
   }
   .filter {
     bottom: 70px;
-    font-size: 11px;
+    font-size: 13px;
     max-width: calc(100vw - 24px);
     overflow-x: auto;
+    /* Bigger touch targets — thumb-sized rather than mouse-sized. */
+    padding: 5px;
+    gap: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter__pill {
+    padding: 9px 14px;
+    min-height: 36px;
+    white-space: nowrap;
   }
   .composer-trigger {
     bottom: 18px;
