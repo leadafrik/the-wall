@@ -126,3 +126,53 @@ begin
   end if;
 end;
 $$;
+
+-- Atomic placement: serialize the read-check-write sequence with an
+-- advisory transaction lock so two simultaneous POSTs can't both pass
+-- their overlap check against the same snapshot and then land on top of
+-- each other.
+--
+-- The function takes a *proposed* (x, y) that the caller has already
+-- screened against an in-memory snapshot. We re-check overlap against
+-- the live table inside the lock. If clear, insert and return the row.
+-- If overlapping (because a racing insert landed first), return NULL —
+-- the caller refetches and tries again with a fresh placement.
+create or replace function place_note(
+  p_text      text,
+  p_section   text,
+  p_color     text,
+  p_x         int,
+  p_y         int,
+  p_rotation  real,
+  p_z_index   int,
+  p_ip_hash   text,
+  p_min_dx    int default 175,
+  p_min_dy    int default 320
+)
+returns notes
+language plpgsql
+as $$
+declare
+  v_row notes;
+begin
+  -- 64-bit constant key — any stable integer works; this one is just a
+  -- magic number so we don't collide with other advisory locks.
+  perform pg_advisory_xact_lock(872913041);
+
+  if exists (
+    select 1
+    from notes
+    where is_visible = true
+      and abs(x - p_x) < p_min_dx
+      and abs(y - p_y) < p_min_dy
+  ) then
+    return null;
+  end if;
+
+  insert into notes (text, section, color, x, y, rotation, z_index, ip_hash, flagged)
+  values (p_text, p_section, p_color, p_x, p_y, p_rotation, p_z_index, p_ip_hash, false)
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;

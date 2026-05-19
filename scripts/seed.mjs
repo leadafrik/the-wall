@@ -28,12 +28,12 @@ const SECTION_COLORS = {
 
 const CANVAS_SIZE = 10_000;
 const CENTER = CANVAS_SIZE / 2;
-// Mirror of src/lib/placement.ts — asymmetric bounding boxes (notes are
-// taller than they are wide), search rings grow on every miss.
-const NO_OVERLAP_X = 160;
-const NO_OVERLAP_Y = 250;
-const MIN_OFFSET = 280;
-const MAX_OFFSET = 460;
+// Mirror of src/lib/placement.ts — keep these in sync with that file
+// and with place_note()'s defaults in supabase/schema.sql.
+const NO_OVERLAP_X = 175;
+const NO_OVERLAP_Y = 320;
+const MIN_OFFSET = 340;
+const MAX_OFFSET = 520;
 const MAX_ATTEMPTS = 60;
 
 const NOTES = [

@@ -12,17 +12,19 @@ import type { Note } from '@/types';
 
 export const CANVAS_SIZE = 10_000;
 export const NOTE_WIDTH = 150;
-export const NOTE_HEIGHT_APPROX = 240; // worst-case tall multi-line note
+export const NOTE_HEIGHT_APPROX = 300; // realistic upper bound for word-wrapped 280-char notes
 
 // Center-to-center distances at or above which two notes can't visually
-// overlap. Asymmetric because notes are taller than they are wide.
-const NO_OVERLAP_X = 160; // 150 + 10 for rotation slack
-const NO_OVERLAP_Y = 250; // 240 + 10 for rotation slack
+// overlap. True upper bounds: a 150×NOTE_HEIGHT_APPROX note rotated ±4°
+// has a bounding box of ~166 × ~310, so these values include real slack.
+// Kept in sync with place_note()'s defaults in supabase/schema.sql.
+export const NO_OVERLAP_X = 175;
+export const NO_OVERLAP_Y = 320;
 
 // Starting search radius for the next note's anchor offset. Must be ≥ the
 // largest no-overlap distance or the first ring is guaranteed to fail.
-const MIN_OFFSET = 280;
-const MAX_OFFSET = 460;
+const MIN_OFFSET = 340;
+const MAX_OFFSET = 520;
 
 // Cap on attempts, then a hard escape hatch that pushes far enough to be
 // guaranteed clear of any anchor cluster.
