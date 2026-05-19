@@ -1,5 +1,7 @@
 export const metadata = {
   title: 'about · the wall',
+  description:
+    'the wall is a place where words go when they have nowhere else to go. no names, no accounts — just what you’re carrying.',
 };
 
 export default function About() {

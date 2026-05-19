@@ -57,6 +57,27 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${caveat.variable} ${lora.variable}`}>
+      <head>
+        {/* Tells Google "this is a real site with a name and a description"
+            so brand searches can render a sitelinks card instead of just a
+            blue link. Schema.org WebSite is the minimum useful structured
+            data for a site like this — no fake author, no fake rating. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'the wall',
+              alternateName: 'humanity wall',
+              url: 'https://humanitywall.org',
+              description:
+                'an anonymous, public, living archive of human expression. no names, no accounts — just words left on a wall.',
+              inLanguage: 'en',
+            }),
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

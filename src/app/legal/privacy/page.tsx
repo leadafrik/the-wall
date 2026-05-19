@@ -1,5 +1,7 @@
 export const metadata = {
   title: 'privacy · the wall',
+  description:
+    'the wall is built to know almost nothing about you. no accounts, no analytics, no third-party trackers — here’s exactly what we do and don’t keep.',
 };
 
 export default function Privacy() {

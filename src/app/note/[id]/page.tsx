@@ -6,6 +6,13 @@ import type { Note } from '@/types';
 
 export const revalidate = 60;
 
+// Individual notes are intentionally kept out of search indexes.
+// Backs up the disallow rule in robots.ts so any crawler that ignores
+// robots.txt still sees a hard in-page noindex.
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function NotePermalink({
   params,
 }: {

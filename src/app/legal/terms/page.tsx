@@ -1,5 +1,7 @@
 export const metadata = {
   title: 'terms · the wall',
+  description:
+    'the few things we ask of anyone using the wall — what to leave, what not to, what we will and won’t do.',
 };
 
 export default function Terms() {

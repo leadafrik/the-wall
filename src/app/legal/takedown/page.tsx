@@ -1,5 +1,7 @@
 export const metadata = {
   title: 'takedowns · the wall',
+  description:
+    'how to ask for a note to be removed from the wall — what to include, how fast we respond, and the honest limits of authorship checks on an anonymous site.',
 };
 
 export default function Takedown() {
