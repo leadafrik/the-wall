@@ -127,6 +127,21 @@ begin
 end;
 $$;
 
+-- Unique-visitor count over a time window, derived from rate-limit data
+-- we already collect. No new tracking, no IPs in clear — just a count of
+-- distinct hashed IPs that have hit the read endpoints since p_since_bucket.
+-- p_since_bucket is a minute-bucket (floor(epoch_ms / 60000)). Capping to
+-- a bigint and using count() keeps this cheap on the indexed bucket column.
+create or replace function visitor_count(p_since_bucket bigint)
+returns integer
+language sql
+stable
+as $$
+  select count(distinct ip_hash)::int
+  from read_rate
+  where bucket >= p_since_bucket;
+$$;
+
 -- Atomic placement: serialize the read-check-write sequence with an
 -- advisory transaction lock so two simultaneous POSTs can't both pass
 -- their overlap check against the same snapshot and then land on top of

@@ -4,24 +4,38 @@ import { useEffect, useState } from 'react';
 
 import type { AdminNote } from '@/types';
 
+interface Stats {
+  notes_visible: number;
+  notes_last_24h: number;
+  visitors_24h: number | null;
+  visitors_7d: number | null;
+}
+
 export function AdminPanel() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<AdminNote[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/notes', { cache: 'no-store' });
-      if (res.status === 401) {
+      const [notesRes, statsRes] = await Promise.all([
+        fetch('/api/admin/notes', { cache: 'no-store' }),
+        fetch('/api/admin/stats', { cache: 'no-store' }),
+      ]);
+      if (notesRes.status === 401) {
         setAuthed(false);
         return;
       }
-      const body = await res.json();
-      setNotes(body.notes ?? []);
+      const notesBody = await notesRes.json();
+      setNotes(notesBody.notes ?? []);
       setAuthed(true);
+      if (statsRes.ok) {
+        setStats((await statsRes.json()) as Stats);
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +115,38 @@ export function AdminPanel() {
           log out
         </button>
       </div>
+
+      {stats && (
+        <dl
+          className="admin__stats"
+          title="distinct hashed IPs from rate-limit data — overcounts when the same person uses multiple networks, undercounts the reverse"
+        >
+          <div className="admin__stat">
+            <dt>notes</dt>
+            <dd>{stats.notes_visible.toLocaleString()}</dd>
+          </div>
+          <div className="admin__stat">
+            <dt>posted · 24h</dt>
+            <dd>{stats.notes_last_24h.toLocaleString()}</dd>
+          </div>
+          <div className="admin__stat">
+            <dt>visitors · 24h</dt>
+            <dd>
+              {stats.visitors_24h === null
+                ? '—'
+                : stats.visitors_24h.toLocaleString()}
+            </dd>
+          </div>
+          <div className="admin__stat">
+            <dt>visitors · 7d</dt>
+            <dd>
+              {stats.visitors_7d === null
+                ? '—'
+                : stats.visitors_7d.toLocaleString()}
+            </dd>
+          </div>
+        </dl>
+      )}
 
       <ul className="admin__list">
         {notes.map((n) => (
