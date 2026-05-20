@@ -31,6 +31,11 @@ export const metadata: Metadata = {
   title: 'the wall',
   description:
     'an anonymous, public, living archive of human expression. no names, no accounts — just words left on a wall.',
+  verification: {
+    // Google Search Console — emits <meta name="google-site-verification" ...>.
+    // Token is from the URL-prefix property at https://search.google.com/search-console.
+    google: 'aSAC_GBY8kbbJVgaQjLLH2pNYTlT4-0cI7LEOkgk7VM',
+  },
   openGraph: {
     title: 'the wall',
     description:
