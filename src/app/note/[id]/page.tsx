@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { WallClient } from '@/components/WallClient';
+import { canvasSizeForNotes } from '@/lib/placement';
 import { getSupabaseAnonServer } from '@/lib/supabase-server';
 import type { Note } from '@/types';
 
@@ -27,6 +28,7 @@ export default async function NotePermalink({
   return (
     <WallClient
       initialNotes={loaded.all}
+      initialCanvasSize={loaded.canvasSize}
       activeSection={null}
       initialFocus={loaded.focus}
     />
@@ -35,29 +37,39 @@ export default async function NotePermalink({
 
 async function loadNoteAndContext(
   id: string,
-): Promise<{ focus: Note; all: Note[] } | null> {
+): Promise<{ focus: Note; all: Note[]; canvasSize: number } | null> {
   try {
     const supabase = getSupabaseAnonServer();
 
-    const { data: focus } = await supabase
-      .from('notes')
-      .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
-      .eq('id', id)
-      .eq('is_visible', true)
-      .maybeSingle();
+    const [focusRes, restRes, countRes] = await Promise.all([
+      supabase
+        .from('notes')
+        .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+        .eq('id', id)
+        .eq('is_visible', true)
+        .maybeSingle(),
+      supabase
+        .from('notes')
+        .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+        .eq('is_visible', true)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      supabase
+        .from('notes')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_visible', true),
+    ]);
 
+    const focus = focusRes.data;
     if (!focus) return null;
 
-    const { data: rest } = await supabase
-      .from('notes')
-      .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
-      .eq('is_visible', true)
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    const all: Note[] = (rest as Note[] | null) ?? [];
+    const all: Note[] = (restRes.data as Note[] | null) ?? [];
     if (!all.some((n) => n.id === focus.id)) all.unshift(focus as Note);
-    return { focus: focus as Note, all };
+    return {
+      focus: focus as Note,
+      all,
+      canvasSize: canvasSizeForNotes(countRes.count ?? 0),
+    };
   } catch {
     return null;
   }

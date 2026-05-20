@@ -6,16 +6,22 @@ import { Composer } from '@/components/Composer';
 import { ExpandedNote } from '@/components/ExpandedNote';
 import { Note } from '@/components/Note';
 import { SectionFilter } from '@/components/SectionFilter';
-import { CANVAS_SIZE } from '@/lib/placement';
+import { CANVAS_SIZE, canvasSizeForNotes } from '@/lib/placement';
 import { containsStrongLanguage } from '@/lib/profanity';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import type { Note as NoteData, Section } from '@/types';
 
 interface Props {
   initialNotes: NoteData[];
+  initialCanvasSize: number;
   activeSection: Section | null;
   initialFocus?: NoteData | null; // for /note/[id] direct links
 }
+
+// Fraction of the viewport the user can overshoot past the canvas edge in
+// each direction. ~0.5 = canvas can be half-a-viewport off-screen — enough
+// slack for a natural flick at the edge, not enough to lose the canvas.
+const PAN_OVERSHOOT_FRAC = 0.5;
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3.5;
@@ -50,8 +56,20 @@ const DOUBLE_TAP_ZOOM_IN = 2.2;
 const HINT_SEEN_KEY = 'wall_hint_seen_v1';
 const GENTLE_MODE_KEY = 'wall_gentle_mode_v1';
 
-export function WallClient({ initialNotes, activeSection, initialFocus }: Props) {
+export function WallClient({
+  initialNotes,
+  initialCanvasSize,
+  activeSection,
+  initialFocus,
+}: Props) {
   const [notes, setNotes] = useState<NoteData[]>(initialNotes);
+  // Canvas size grows monotonically — every time the loaded note count
+  // crosses another 1000-mark, the canvas bumps up. Take the max so we
+  // never shrink (a deleted note shouldn't snap visitors back inward).
+  const canvasSize = useMemo(
+    () => Math.max(initialCanvasSize, canvasSizeForNotes(notes.length)),
+    [initialCanvasSize, notes.length],
+  );
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<NoteData | null>(initialFocus ?? null);
   const [hintVisible, setHintVisible] = useState(false);
@@ -197,10 +215,24 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
   }, []);
 
   // -------- Pan helpers --------
-  // The wall scrolls infinitely — no edge clamp. Identity function for now,
-  // kept so callers don't have to special-case "no clamp".
-  function clampPan(p: { x: number; y: number }, _z: number, _vw: number, _vh: number) {
-    return p;
+  // Clamp pan so the canvas can never be fully panned off-screen. Allows
+  // ~half a viewport of overshoot at each edge for natural flick feel,
+  // but stops users from wandering into pure void.
+  function clampPan(
+    p: { x: number; y: number },
+    z: number,
+    vw: number,
+    vh: number,
+  ) {
+    if (vw === 0 || vh === 0) return p; // initial layout, no viewport yet
+    const canvasW = canvasSize * z;
+    const canvasH = canvasSize * z;
+    const oX = vw * PAN_OVERSHOOT_FRAC;
+    const oY = vh * PAN_OVERSHOOT_FRAC;
+    return {
+      x: Math.max(-canvasW - oX, Math.min(vw + oX, p.x)),
+      y: Math.max(-canvasH - oY, Math.min(vh + oY, p.y)),
+    };
   }
 
   // -------- Mouse drag pan --------
@@ -594,8 +626,8 @@ export function WallClient({ initialNotes, activeSection, initialFocus }: Props)
         <div
           className={`wall__canvas${arrowAnimating ? ' wall__canvas--easing' : ''}`}
           style={{
-            width: CANVAS_SIZE,
-            height: CANVAS_SIZE,
+            width: canvasSize,
+            height: canvasSize,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           }}
         >

@@ -10,9 +10,24 @@
 
 import type { Note } from '@/types';
 
-export const CANVAS_SIZE = 10_000;
 export const NOTE_WIDTH = 150;
 export const NOTE_HEIGHT_APPROX = 300; // realistic upper bound for word-wrapped 280-char notes
+
+// Canvas auto-expands with population so it's always sized to ~30-40% full —
+// enough headroom for placement to find clean spots, no hardcoded ceiling.
+// One discrete bump per 1000 notes keeps growth predictable and avoids
+// constant resizing on every insert.
+const CANVAS_BASE = 10_000;
+const CANVAS_STEP = 3_000;
+const CANVAS_NOTES_PER_STEP = 1000;
+
+export function canvasSizeForNotes(noteCount: number): number {
+  return CANVAS_BASE + Math.floor(noteCount / CANVAS_NOTES_PER_STEP) * CANVAS_STEP;
+}
+
+// Legacy export — kept so anything importing CANVAS_SIZE doesn't break.
+// Treat as "the smallest canvas the wall ever shows," not "the actual size now."
+export const CANVAS_SIZE = CANVAS_BASE;
 
 // Center-to-center distances at or above which two notes can't visually
 // overlap. True upper bounds: a 150×NOTE_HEIGHT_APPROX note rotated ±4°

@@ -6,7 +6,7 @@ import { checkNoteRateLimit } from '@/lib/rate-limit';
 import { checkReadRateLimit } from '@/lib/read-rate-limit';
 import { moderateNote } from '@/lib/moderation';
 import {
-  CANVAS_SIZE,
+  canvasSizeForNotes,
   NO_OVERLAP_X,
   NO_OVERLAP_Y,
   pickNotePlacement,
@@ -82,11 +82,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Live canvas bound so the client can clamp pan without recomputing.
+  // Uses the same service client we already opened above for the rate limit.
+  const visibleCount = await countVisibleNotes(service);
+
   return NextResponse.json(
-    { notes: data ?? [] },
+    { notes: data ?? [], canvas_size: canvasSizeForNotes(visibleCount) },
     {
       headers: {
-        // Per-user cookie means we can't share this across sessions.
         'Cache-Control': 'private, no-store',
       },
     },
@@ -222,11 +225,23 @@ async function handlePost(req: NextRequest) {
     );
   }
 
+  // canvas_size is the live, auto-expanding bound — recomputed from the
+  // current visible-note count so the client can clamp pan to it.
+  const visibleCount = await countVisibleNotes(service);
+
   return NextResponse.json({
     note: inserted,
     crisisDetected: moderation.crisisDetected ?? false,
-    canvas_size: CANVAS_SIZE,
+    canvas_size: canvasSizeForNotes(visibleCount),
   });
+}
+
+async function countVisibleNotes(service: Service): Promise<number> {
+  const { count } = await service
+    .from('notes')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_visible', true);
+  return count ?? 0;
 }
 
 // Place a new note and insert it atomically.
