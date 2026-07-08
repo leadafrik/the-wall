@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const service = getSupabaseServiceServer();
   const { data, error } = await service
     .from('notes')
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible,ip_hash,flagged')
+    .select('id,slug,text,section,color,x,y,rotation,z_index,created_at,is_visible,ip_hash,flagged')
     .order('created_at', { ascending: false })
     .limit(limit);
 

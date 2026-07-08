@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const supabase = getSupabaseAnonServer();
   const { data, error } = await supabase
     .from('notes')
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+    .select('id,slug,text,section,color,x,y,rotation,z_index,created_at,is_visible')
     .eq('id', id)
     .eq('is_visible', true)
     .maybeSingle();

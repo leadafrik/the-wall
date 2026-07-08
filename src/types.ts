@@ -7,6 +7,9 @@ export type Section =
 
 export interface Note {
   id: string;
+  // Human-readable URL segment ("first-words-of-the-note-1a2b3c4d").
+  // Null only for rows created before the slug migration ran.
+  slug: string | null;
   text: string;
   section: Section;
   color: string;

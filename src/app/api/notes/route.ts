@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabaseAnonServer();
   let q = supabase
     .from('notes')
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+    .select('id,slug,text,section,color,x,y,rotation,z_index,created_at,is_visible')
     .eq('is_visible', true)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -332,7 +332,7 @@ async function plainInsertFallback(
       ip_hash: args.ipHash,
       flagged: false,
     })
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+    .select('id,slug,text,section,color,x,y,rotation,z_index,created_at,is_visible')
     .single();
   if (error) {
     console.error('plain insert fallback failed:', error.message);

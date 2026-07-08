@@ -16,6 +16,48 @@ create table if not exists notes (
   flagged     boolean not null default false
 );
 
+-- SEO slug: a human-readable, unique URL segment derived from the note text
+-- plus the first 8 hex chars of the id (so two notes with the same words
+-- can't collide). Filled by trigger on insert; backfilled below for rows
+-- that existed before the column was added.
+alter table notes add column if not exists slug text;
+
+create or replace function note_slug(p_text text, p_id uuid)
+returns text
+language sql
+immutable
+as $$
+  select trim(both '-' from left(
+           coalesce(
+             nullif(
+               trim(both '-' from regexp_replace(lower(p_text), '[^a-z0-9]+', '-', 'g')),
+               ''),
+             'note'),
+           60))
+         || '-' || left(replace(p_id::text, '-', ''), 8);
+$$;
+
+create or replace function notes_set_slug()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.slug is null then
+    new.slug := note_slug(new.text, new.id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists notes_slug_trigger on notes;
+create trigger notes_slug_trigger
+  before insert on notes
+  for each row execute function notes_set_slug();
+
+update notes set slug = note_slug(text, id) where slug is null;
+
+create unique index if not exists notes_slug_idx on notes (slug);
+
 create index if not exists notes_visible_created_idx on notes (is_visible, created_at desc);
 create index if not exists notes_section_idx on notes (section);
 create index if not exists notes_xy_idx on notes (x, y);

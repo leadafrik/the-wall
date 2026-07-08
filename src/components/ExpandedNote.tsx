@@ -34,7 +34,7 @@ export function ExpandedNote({ note, onClose }: Props) {
         <div className="expanded__text">{note.text}</div>
         <div className="expanded__meta">
           <span>{relativeTime(note.created_at)}</span>
-          <a className="expanded__permalink" href={`/note/${note.id}`}>
+          <a className="expanded__permalink" href={`/note/${note.slug ?? note.id}`}>
             permalink
           </a>
         </div>

@@ -42,7 +42,7 @@ async function loadSectionNotes(
     const [notesRes, countRes] = await Promise.all([
       supabase
         .from('notes')
-        .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
+        .select('id,slug,text,section,color,x,y,rotation,z_index,created_at,is_visible')
         .eq('is_visible', true)
         .eq('section', section)
         .order('created_at', { ascending: false })

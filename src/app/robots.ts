@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/api/', '/note/'],
+        disallow: ['/admin', '/api/'],
       },
     ],
     sitemap: 'https://humanitywall.org/sitemap.xml',
