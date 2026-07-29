@@ -28,7 +28,9 @@ async function loadNotes(): Promise<{ notes: Note[]; canvasSize: number }> {
         .limit(200),
       supabase
         .from('notes')
-        .select('id', { count: 'exact', head: true })
+        // 'estimated' avoids a full COUNT scan at scale — canvas_size only
+        // needs a ballpark and the client clamps it monotonically.
+        .select('id', { count: 'estimated', head: true })
         .eq('is_visible', true),
     ]);
     return {

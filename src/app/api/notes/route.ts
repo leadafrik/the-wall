@@ -5,16 +5,11 @@ import { hashIp } from '@/lib/admin-auth';
 import { checkNoteRateLimit } from '@/lib/rate-limit';
 import { checkReadRateLimit } from '@/lib/read-rate-limit';
 import { moderateNote } from '@/lib/moderation';
-import {
-  canvasSizeForNotes,
-  NO_OVERLAP_X,
-  NO_OVERLAP_Y,
-  pickNotePlacement,
-} from '@/lib/placement';
+import { canvasSizeForNotes } from '@/lib/placement';
+import { countVisibleNotes, placeAndInsert } from '@/lib/place-note';
 import { isSection, SECTION_COLORS } from '@/lib/sections';
 import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
 import { verifyTurnstile } from '@/lib/turnstile';
-import type { Note } from '@/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -241,132 +236,6 @@ async function handlePost(req: NextRequest) {
     crisisDetected: moderation.crisisDetected ?? false,
     canvas_size: canvasSizeForNotes(visibleCount),
   });
-}
-
-async function countVisibleNotes(service: Service): Promise<number> {
-  const { count } = await service
-    .from('notes')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_visible', true);
-  return count ?? 0;
-}
-
-// Place a new note and insert it atomically.
-//
-// Two old failure modes are closed here:
-//   1. Concurrency race — two simultaneous POSTs would each fetch the same
-//      neighbor snapshot, each pick a non-overlapping spot, and both land.
-//      The new path serializes the check-and-insert inside a Postgres
-//      advisory transaction lock (see place_note() in supabase/schema.sql).
-//   2. Stale snapshot — placement used to read only the most recent 400
-//      visible notes. Past 400, new notes could be dropped on top of older
-//      ones. We now fetch every visible note.
-//
-// If place_note() isn't installed yet (schema.sql not applied), we fall
-// back to a direct insert with a warning log. That keeps the site working
-// during deploys, with the old race behavior, until the migration runs.
-const MAX_PLACE_RETRIES = 6;
-type Service = ReturnType<typeof getSupabaseServiceServer>;
-
-async function placeAndInsert(
-  service: Service,
-  args: { text: string; section: string; color: string; ipHash: string },
-): Promise<Note | null> {
-  // Pull every visible note's (id, x, y) — that's all placement needs.
-  // ~30 bytes/row × 10K notes = 300KB, trivial. RLS allows visible-row
-  // reads anyway, so this is no more sensitive than the GET endpoint.
-  let neighbors = await fetchAllNeighbors(service);
-
-  for (let attempt = 0; attempt < MAX_PLACE_RETRIES; attempt++) {
-    const placement = pickNotePlacement(neighbors);
-
-    const rpc = await service.rpc('place_note', {
-      p_text: args.text,
-      p_section: args.section,
-      p_color: args.color,
-      p_x: placement.x,
-      p_y: placement.y,
-      p_rotation: placement.rotation,
-      p_z_index: placement.z_index,
-      p_ip_hash: args.ipHash,
-      p_min_dx: NO_OVERLAP_X,
-      p_min_dy: NO_OVERLAP_Y,
-    });
-
-    if (rpc.error) {
-      // Only fall back to a plain insert when the function genuinely isn't
-      // installed (schema.sql not applied yet) — PGRST202 = "function not
-      // found". Any other error (timeout, transient outage) must NOT skip
-      // the overlap guard; retry instead, and 503 if it keeps failing.
-      if (rpc.error.code === 'PGRST202') {
-        console.warn(
-          `place_note RPC not installed (${rpc.error.message}) — using plain insert`,
-        );
-        return plainInsertFallback(service, args, placement);
-      }
-      console.error(`place_note RPC error (attempt ${attempt}): ${rpc.error.message}`);
-      continue;
-    }
-
-    if (rpc.data) return rpc.data as Note;
-
-    // place_note returned null: a concurrent insert landed at our chosen
-    // spot. Refetch the live state and try a fresh placement.
-    neighbors = await fetchAllNeighbors(service);
-  }
-
-  return null;
-}
-
-// PostgREST silently caps un-ranged selects (1000 rows by default), so a
-// bare .select() stops "fetching every visible note" the moment the wall
-// passes 1000 notes — placement then proposes spots on top of unseen
-// neighbors and place_note() rejects nearly every attempt. Page through
-// explicitly so the snapshot really is complete.
-const NEIGHBOR_PAGE = 1000;
-
-async function fetchAllNeighbors(service: Service): Promise<Note[]> {
-  const all: Note[] = [];
-  for (let from = 0; ; from += NEIGHBOR_PAGE) {
-    const { data, error } = await service
-      .from('notes')
-      .select('id,x,y')
-      .eq('is_visible', true)
-      .order('id', { ascending: true })
-      .range(from, from + NEIGHBOR_PAGE - 1);
-    if (error || !data) break;
-    // pickNotePlacement only reads x/y, so the partial shape is fine.
-    all.push(...(data as unknown as Note[]));
-    if (data.length < NEIGHBOR_PAGE) break;
-  }
-  return all;
-}
-
-async function plainInsertFallback(
-  service: Service,
-  args: { text: string; section: string; color: string; ipHash: string },
-  placement: { x: number; y: number; rotation: number; z_index: number },
-): Promise<Note | null> {
-  const { data, error } = await service
-    .from('notes')
-    .insert({
-      text: args.text,
-      section: args.section,
-      color: args.color,
-      x: placement.x,
-      y: placement.y,
-      rotation: placement.rotation,
-      z_index: placement.z_index,
-      ip_hash: args.ipHash,
-      flagged: false,
-    })
-    .select('id,text,section,color,x,y,rotation,z_index,created_at,is_visible')
-    .single();
-  if (error) {
-    console.error('plain insert fallback failed:', error.message);
-    return null;
-  }
-  return data as Note;
 }
 
 async function logRejection(reason: string, textLength: number): Promise<void> {

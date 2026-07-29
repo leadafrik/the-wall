@@ -67,14 +67,23 @@ interface Candidate {
   z_index: number;
 }
 
-export function pickNotePlacement(existing: Note[]): Candidate {
+// `existing` is the overlap/anchor snapshot — at scale this is a bounded
+// *local* window of nearby notes, NOT the whole wall (see src/lib/place-note.ts).
+// `totalCount` is the true visible-note count, used only to size the canvas;
+// it's passed separately so a partial snapshot doesn't shrink the canvas.
+// Correctness never rests on `existing` being complete: the DB guard
+// (place_note / show_note) re-checks the full table under a lock.
+export function pickNotePlacement(
+  existing: Note[],
+  totalCount: number = existing.length,
+): Candidate {
   const rotation = roundTo(randomBetween(-4, 4), 2);
   const z_index = Math.floor(Math.random() * 1000);
 
   // Every candidate must land fully inside the *current* canvas — the
   // client clamps panning to canvasSizeForNotes(count), so an out-of-bounds
   // note would be unreachable. (x, y) is the note's top-left corner.
-  const size = canvasSizeForNotes(existing.length);
+  const size = canvasSizeForNotes(totalCount);
   const minX = EDGE_MARGIN;
   const maxX = size - NOTE_WIDTH - EDGE_MARGIN;
   const minY = EDGE_MARGIN;

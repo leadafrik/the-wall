@@ -24,7 +24,10 @@ export async function GET() {
   const [notesTotal, notesLast24h, visitors24h, visitors7d] = await Promise.all([
     service
       .from('notes')
-      .select('id', { count: 'exact', head: true })
+      // 'estimated' keeps the dashboard snappy on a huge table — a total-notes
+      // figure doesn't need to be exact. (The 24h count below stays exact: it's
+      // index-bounded to recent rows, so it's cheap and worth being precise.)
+      .select('id', { count: 'estimated', head: true })
       .eq('is_visible', true),
     service
       .from('notes')

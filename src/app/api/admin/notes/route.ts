@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isAdmin } from '@/lib/admin-auth';
+import { reviveNote } from '@/lib/place-note';
 import { getSupabaseServiceServer } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
@@ -54,6 +55,25 @@ export async function PATCH(req: NextRequest) {
   }
 
   const service = getSupabaseServiceServer();
+
+  // Restoring a hidden note is special: its old slot may have been reused by
+  // newer notes while it was invisible, so a blind is_visible=true could
+  // resurrect it underneath another note. reviveNote re-checks overlap and
+  // re-places it if needed, then applies any flagged change alongside.
+  if (patch.is_visible === true) {
+    const revived = await reviveNote(service, id);
+    if (!revived) {
+      return NextResponse.json(
+        { error: 'could not restore — no clear spot right now, try again' },
+        { status: 503 },
+      );
+    }
+    if (typeof patch.flagged === 'boolean') {
+      await service.from('notes').update({ flagged: patch.flagged }).eq('id', id);
+    }
+    return NextResponse.json({ ok: true, note: revived });
+  }
+
   const { error } = await service.from('notes').update(patch).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

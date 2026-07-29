@@ -18,7 +18,16 @@ create table if not exists notes (
 
 create index if not exists notes_visible_created_idx on notes (is_visible, created_at desc);
 create index if not exists notes_section_idx on notes (section);
+-- Spatial index for the placement overlap check (place_note/show_note) and
+-- the per-anchor window fetch in src/lib/place-note.ts. Partial on visible
+-- rows: those are the only ones placement and public reads ever look at, so
+-- the index stays small and hot even with many hidden/moderated notes.
 create index if not exists notes_xy_idx on notes (x, y);
+create index if not exists notes_visible_xy_idx on notes (x, y) where is_visible = true;
+-- Section wall reads (/[section]) filter on visible + section and order by
+-- recency; this partial composite serves that path directly.
+create index if not exists notes_section_created_idx
+  on notes (section, created_at desc) where is_visible = true;
 -- For the per-IP duplicate-within-an-hour guard in POST /api/notes.
 create index if not exists notes_iphash_created_idx on notes (ip_hash, created_at desc);
 
@@ -195,3 +204,85 @@ begin
   return v_row;
 end;
 $$;
+
+-- Restore a hidden note without letting it reappear under a newer note.
+--
+-- While a note is hidden it doesn't participate in the overlap check, so its
+-- old slot can be reused. Un-hiding must therefore re-check overlap (against
+-- every OTHER visible note) under the same advisory lock place_note() uses,
+-- and re-place the note if its original spot is now taken. The caller
+-- (reviveNote in src/lib/place-note.ts) first proposes the note's own old
+-- position, then fresh positions on rejection.
+create or replace function show_note(
+  p_id       uuid,
+  p_x        int,
+  p_y        int,
+  p_rotation real,
+  p_z_index  int,
+  p_min_dx   int default 175,
+  p_min_dy   int default 320
+)
+returns notes
+language plpgsql
+as $$
+declare
+  v_row notes;
+begin
+  perform pg_advisory_xact_lock(872913041);
+
+  if exists (
+    select 1
+    from notes
+    where is_visible = true
+      and id <> p_id
+      and x > p_x - p_min_dx and x < p_x + p_min_dx
+      and y > p_y - p_min_dy and y < p_y + p_min_dy
+  ) then
+    return null;
+  end if;
+
+  update notes
+     set is_visible = true,
+         x = p_x,
+         y = p_y,
+         rotation = p_rotation,
+         z_index = p_z_index
+   where id = p_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- OPTIONAL hardening for extreme write concurrency.
+--
+-- place_note()/show_note() serialize every write behind one global advisory
+-- lock. That's correct and, because posting is rate-limited to 1 note/hour
+-- /IP, plenty fast in practice. If you ever need lock-free concurrent writes
+-- (many inserts/sec across the globe), a GiST exclusion constraint enforces
+-- non-overlap at the storage layer with only per-region locking — and makes
+-- overlap impossible even if application code has a bug.
+--
+-- Two notes overlap iff |x1-x2| < min_dx AND |y1-y2| < min_dy, which is
+-- exactly box-overlap for boxes centered at (x,y) with half-extents
+-- (min_dx/2, min_dy/2) = (87.5, 160). The partial WHERE matches our rule of
+-- only caring about *visible* notes.
+--
+-- NOTE: adding this fails if any visible notes already overlap (older data
+-- from the buggy layout). Run scripts/reposition.mjs --apply FIRST to lay
+-- out a clean, non-overlapping wall, then enable this:
+--
+--   create extension if not exists btree_gist;
+--   alter table notes add column if not exists bbox box
+--     generated always as (
+--       box(point(x - 87.5, y - 160.0), point(x + 87.5, y + 160.0))
+--     ) stored;
+--   alter table notes add constraint notes_no_overlap
+--     exclude using gist (bbox with &&) where (is_visible);
+--
+-- With the constraint in place, place_note()/show_note() still work as-is
+-- (their pre-check becomes a fast path; the constraint is the backstop), and
+-- a conflicting insert simply raises exclusion_violation, which the app
+-- already treats as "spot taken, retry."
+-- ---------------------------------------------------------------------------

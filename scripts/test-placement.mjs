@@ -4,16 +4,18 @@
 //   npm run test:placement
 //   (= node --experimental-strip-types scripts/test-placement.mjs)
 //
-// Imports the *real* src/lib/placement.ts (no mirror drift) and simulates
-// the place_note() DB guard from supabase/schema.sql, then hammers the
-// pipeline the way production traffic would:
+// Imports the *real* src/lib/placement.ts (no mirror drift) and simulates the
+// DB guard from supabase/schema.sql plus the bounded spatial-window write
+// strategy from src/lib/place-note.ts, then hammers the pipeline the way
+// worldwide production traffic would:
 //
 //   1. geometry     — NO_OVERLAP_X/Y really bound a ±4°-rotated note box
 //   2. sequential   — thousands of one-at-a-time posts, zero overlapping pairs
 //   3. saturation   — placing into a fully packed grid still never overlaps
 //   4. concurrency  — racing posters with stale snapshots, DB guard holds
-//   5. stale/capped — snapshot missing rows (the PostgREST 1000-row cap):
-//                     the DB guard must still keep the table overlap-free
+//   5. at-scale     — bounded spatial-window snapshot (the production write
+//                     path): O(1) fetch per write, zero overlaps, low 503 rate
+//   6. admin revive — un-hiding a note whose slot was reused never overlaps
 //
 // Exits non-zero on any failure so this can gate a deploy.
 
@@ -25,6 +27,11 @@ import {
   pickNotePlacement,
   canvasSizeForNotes,
 } from '../src/lib/placement.ts';
+
+// Mirror of place-note.ts tuning — the harness models that strategy.
+const NEIGHBOR_WINDOW = 2000;
+const RECENT_ANCHOR_POOL = 100;
+const MAX_PLACE_RETRIES = 12;
 
 let failures = 0;
 
@@ -40,7 +47,6 @@ function overlaps(a, b) {
   );
 }
 
-// Count every overlapping pair in a set of notes (brute force, test-only).
 function overlappingPairs(notes) {
   const pairs = [];
   for (let i = 0; i < notes.length; i++) {
@@ -51,25 +57,34 @@ function overlappingPairs(notes) {
   return pairs;
 }
 
-// Mirror of place_note() in supabase/schema.sql: the serialized
-// check-and-insert that every real write goes through. Returns the row on
-// success, null when a racing insert already claimed the spot.
-function dbPlaceNote(table, candidate) {
-  for (const n of table) {
-    if (overlaps(n, candidate)) return null;
+// Mirror of place_note()/show_note() in supabase/schema.sql: the serialized
+// check-and-insert every real write goes through. `excludeIdx` lets show_note
+// ignore the note being revived. Returns true on success (row added/kept).
+function dbGuardClear(table, candidate, excludeIdx = -1) {
+  for (let i = 0; i < table.length; i++) {
+    if (i === excludeIdx) continue;
+    if (overlaps(table[i], candidate)) return false;
   }
-  table.push(candidate);
-  return candidate;
+  return true;
+}
+
+// Bounded spatial window around (cx, cy) — models fetchWindow() in place-note.ts.
+function windowAround(table, cx, cy) {
+  const out = [];
+  for (const n of table) {
+    if (Math.abs(n.x - cx) < NEIGHBOR_WINDOW && Math.abs(n.y - cy) < NEIGHBOR_WINDOW) {
+      out.push(n);
+    }
+  }
+  return out;
 }
 
 // -------------------------------------------------------------------------
 console.log('\n1. geometry — spacing constants vs rotated note box');
 {
   const rad = (4 * Math.PI) / 180;
-  const bboxW =
-    NOTE_WIDTH * Math.cos(rad) + NOTE_HEIGHT_APPROX * Math.sin(rad);
-  const bboxH =
-    NOTE_HEIGHT_APPROX * Math.cos(rad) + NOTE_WIDTH * Math.sin(rad);
+  const bboxW = NOTE_WIDTH * Math.cos(rad) + NOTE_HEIGHT_APPROX * Math.sin(rad);
+  const bboxH = NOTE_HEIGHT_APPROX * Math.cos(rad) + NOTE_WIDTH * Math.sin(rad);
   check(
     `NO_OVERLAP_X (${NO_OVERLAP_X}) ≥ rotated box width (${bboxW.toFixed(1)})`,
     NO_OVERLAP_X >= bboxW,
@@ -81,10 +96,9 @@ console.log('\n1. geometry — spacing constants vs rotated note box');
 }
 
 // -------------------------------------------------------------------------
-console.log('\n2. sequential — 3000 one-at-a-time posts, fresh snapshot each');
+console.log('\n2. sequential — 3000 one-at-a-time posts, full snapshot');
 {
   const table = [];
-  let rejected = 0;
   let allFinite = true;
   for (let i = 0; i < 3000; i++) {
     const p = pickNotePlacement(table);
@@ -92,38 +106,20 @@ console.log('\n2. sequential — 3000 one-at-a-time posts, fresh snapshot each')
       allFinite = false;
       break;
     }
-    if (!dbPlaceNote(table, p)) rejected++;
+    if (dbGuardClear(table, p)) table.push(p);
   }
   check('every placement finite', allFinite);
-  const pairs = overlappingPairs(table);
-  check(
-    'zero overlapping pairs after 3000 posts',
-    pairs.length === 0,
-    `${table.length} placed, ${rejected} guard-rejected`,
-  );
+  check('zero overlapping pairs after 3000 posts', overlappingPairs(table).length === 0, `${table.length} placed`);
 
-  // Readiness stat: does the auto-expanding canvas keep up with the cluster?
   const xs = table.map((n) => n.x);
   const ys = table.map((n) => n.y);
   const spreadW = Math.max(...xs) - Math.min(...xs);
   const spreadH = Math.max(...ys) - Math.min(...ys);
   const canvas = canvasSizeForNotes(table.length);
-  console.log(
-    `  · cluster ${Math.round(spreadW)}×${Math.round(spreadH)} px, canvas ${canvas} px`,
-  );
-  check(
-    'cluster fits inside the auto-expanded canvas',
-    spreadW <= canvas && spreadH <= canvas,
-  );
-  // The client clamps panning to [0, canvas], so any note outside that
-  // square is unreachable. Canvas growth is monotonic, so checking against
-  // the final size covers every placement.
+  console.log(`  · cluster ${Math.round(spreadW)}×${Math.round(spreadH)} px, canvas ${canvas} px`);
+  check('cluster fits inside the auto-expanded canvas', spreadW <= canvas && spreadH <= canvas);
   const stranded = table.filter(
-    (n) =>
-      n.x < 0 ||
-      n.y < 0 ||
-      n.x + NOTE_WIDTH > canvas ||
-      n.y + NOTE_HEIGHT_APPROX > canvas,
+    (n) => n.x < 0 || n.y < 0 || n.x + NOTE_WIDTH > canvas || n.y + NOTE_HEIGHT_APPROX > canvas,
   );
   check('every note reachable (inside canvas bounds)', stranded.length === 0, `${stranded.length} stranded`);
 }
@@ -131,8 +127,6 @@ console.log('\n2. sequential — 3000 one-at-a-time posts, fresh snapshot each')
 // -------------------------------------------------------------------------
 console.log('\n3. saturation — packed 40×40 grid, forced escape paths');
 {
-  // A grid packed at exactly the minimum spacing: no interior gaps at all,
-  // so every placement is forced through the retry/escape logic.
   const table = [];
   for (let r = 0; r < 40; r++) {
     for (let c = 0; c < 40; c++) {
@@ -143,8 +137,10 @@ console.log('\n3. saturation — packed 40×40 grid, forced escape paths');
   let guardSaves = 0;
   for (let i = 0; i < 200; i++) {
     const p = pickNotePlacement(table);
-    if (dbPlaceNote(table, p)) clean++;
-    else guardSaves++;
+    if (dbGuardClear(table, p)) {
+      table.push(p);
+      clean++;
+    } else guardSaves++;
   }
   check(
     'no overlaps after 200 posts into a saturated grid',
@@ -156,32 +152,27 @@ console.log('\n3. saturation — packed 40×40 grid, forced escape paths');
 // -------------------------------------------------------------------------
 console.log('\n4. concurrency — racing posters sharing stale snapshots');
 {
-  // Each round, WORKERS posters all read the same snapshot, pick placements
-  // independently, then hit the serialized DB guard in random order — the
-  // exact race place_note() exists to close. A guard rejection = the API's
-  // refetch-and-retry path (MAX_PLACE_RETRIES).
   const table = [];
   const WORKERS = 16;
   const ROUNDS = 100;
-  const RETRIES = 6;
   let total = 0;
   let gaveUp = 0;
   for (let round = 0; round < ROUNDS; round++) {
-    const posters = Array.from({ length: WORKERS }, () => ({ tries: 0 }));
-    let pending = posters;
+    let pending = Array.from({ length: WORKERS }, () => ({ tries: 0 }));
     while (pending.length > 0) {
       const snapshot = table.slice(); // shared stale view for this wave
       const wave = pending;
       pending = [];
       for (const poster of wave) {
-        const p = pickNotePlacement(snapshot);
+        const p = pickNotePlacement(snapshot, snapshot.length);
         poster.tries++;
-        if (dbPlaceNote(table, p)) {
+        if (dbGuardClear(table, p)) {
+          table.push(p);
           total++;
-        } else if (poster.tries < RETRIES) {
-          pending.push(poster); // refetch + retry, like the API route
+        } else if (poster.tries < MAX_PLACE_RETRIES) {
+          pending.push(poster);
         } else {
-          gaveUp++; // the 503 path
+          gaveUp++;
         }
       }
     }
@@ -195,32 +186,113 @@ console.log('\n4. concurrency — racing posters sharing stale snapshots');
 }
 
 // -------------------------------------------------------------------------
-console.log('\n5. capped snapshot — placement sees only 1000 of 4000 rows');
+console.log('\n5. at-scale — bounded spatial-window write path (production strategy)');
 {
-  // Models the PostgREST default row cap: the API's neighbor snapshot is
-  // silently truncated, so pickNotePlacement can propose spots on top of
-  // notes it never saw. The DB guard must still keep the table clean —
-  // this is the invariant that survives any snapshot bug.
+  // Models src/lib/place-note.ts exactly: anchor on a recent note, fetch only
+  // a local window, propose via the REAL pickNotePlacement, let the full-table
+  // DB guard have the final say. Proves fetch cost stays bounded (independent
+  // of wall size) while overlaps stay at zero and 503s stay negligible.
+  const N = 8000;
   const table = [];
-  for (let i = 0; i < 4000; i++) {
-    const p = pickNotePlacement(table);
-    dbPlaceNote(table, p);
+  let fetchedTotal = 0;
+  let fetchMax = 0;
+  let gaveUp = 0;
+  let rejects = 0;
+
+  for (let i = 0; i < N; i++) {
+    let placed = false;
+    // Recompute the recent-anchor pool once per post (as the real code does).
+    for (let attempt = 0; attempt < MAX_PLACE_RETRIES && !placed; attempt++) {
+      let candidate;
+      if (table.length === 0) {
+        candidate = pickNotePlacement([], 0);
+      } else {
+        const poolStart = Math.max(0, table.length - RECENT_ANCHOR_POOL);
+        const anchor = table[poolStart + Math.floor(Math.random() * (table.length - poolStart))];
+        const win = windowAround(table, anchor.x, anchor.y);
+        fetchedTotal += win.length;
+        fetchMax = Math.max(fetchMax, win.length);
+        candidate = pickNotePlacement(win.length > 0 ? win : [anchor], table.length);
+      }
+      if (dbGuardClear(table, candidate)) {
+        table.push(candidate);
+        placed = true;
+      } else {
+        rejects++;
+      }
+    }
+    if (!placed) gaveUp++;
   }
-  let landed = 0;
-  let saved = 0;
-  for (let i = 0; i < 300; i++) {
-    const snapshot = table.slice(0, 1000); // what a capped fetch returns
-    const p = pickNotePlacement(snapshot);
-    if (dbPlaceNote(table, p)) landed++;
-    else saved++;
-  }
-  check(
-    'table still overlap-free with a truncated snapshot',
-    overlappingPairs(table).length === 0,
-    `${landed} landed, ${saved} would-be overlaps stopped by the DB guard`,
+
+  const avgFetch = Math.round(fetchedTotal / N);
+  console.log(`  · avg ${avgFetch} rows fetched/write (max ${fetchMax}) — flat vs the ${N}-note wall`);
+  check('zero overlaps across the whole wall', overlappingPairs(table).length === 0, `${table.length} notes`);
+  check('per-write fetch stays bounded (< 400 rows)', fetchMax < 400, `max ${fetchMax}`);
+  check('503 rate under 0.5%', gaveUp / N < 0.005, `${gaveUp} of ${N}, ${rejects} retries`);
+  const canvas = canvasSizeForNotes(table.length);
+  const stranded = table.filter(
+    (n) => n.x < 0 || n.y < 0 || n.x + NOTE_WIDTH > canvas || n.y + NOTE_HEIGHT_APPROX > canvas,
   );
-  console.log(
-    `  · note: ${saved} guard rejections in 300 posts = wasted retries/503s — the API must paginate its neighbor fetch`,
+  check('every note reachable (inside canvas bounds)', stranded.length === 0, `${stranded.length} stranded`);
+}
+
+// -------------------------------------------------------------------------
+console.log('\n6. admin revive — un-hiding never resurrects a note under another');
+{
+  // Build a wall, hide a batch, fill the freed slots with new notes, then
+  // revive the hidden ones via the show_note() guard (keep original spot if
+  // still clear, else re-place). No overlaps among visible notes afterward.
+  const table = []; // { x, y, visible }
+  const place = () => {
+    const snap = table.filter((n) => n.visible);
+    for (let attempt = 0; attempt < MAX_PLACE_RETRIES; attempt++) {
+      const p = pickNotePlacement(snap, snap.length);
+      if (dbGuardClear(snap, p)) return { x: p.x, y: p.y, visible: true };
+    }
+    return null;
+  };
+  for (let i = 0; i < 1500; i++) {
+    const n = place();
+    if (n) table.push(n);
+  }
+  // Hide every 5th note.
+  const hidden = [];
+  for (let i = 0; i < table.length; i += 5) {
+    table[i].visible = false;
+    hidden.push(table[i]);
+  }
+  // Post new notes — some will reclaim the freed slots.
+  for (let i = 0; i < 400; i++) {
+    const n = place();
+    if (n) table.push(n);
+  }
+  // Revive: show_note re-checks overlap against OTHER visible notes.
+  let revived = 0;
+  let couldNotPlace = 0;
+  for (const note of hidden) {
+    const others = table.filter((n) => n !== note && n.visible);
+    let done = false;
+    // attempt 0: original spot; later: fresh placement.
+    for (let attempt = 0; attempt < MAX_PLACE_RETRIES && !done; attempt++) {
+      const cand =
+        attempt === 0
+          ? { x: note.x, y: note.y }
+          : pickNotePlacement(others, others.length);
+      if (dbGuardClear(others, cand)) {
+        note.x = cand.x;
+        note.y = cand.y;
+        note.visible = true;
+        revived++;
+        done = true;
+      }
+    }
+    if (!done) couldNotPlace++;
+  }
+  const visible = table.filter((n) => n.visible);
+  check(
+    'no overlaps among visible notes after reviving',
+    overlappingPairs(visible).length === 0,
+    `${revived} revived, ${couldNotPlace} needed a retry cycle`,
   );
 }
 
