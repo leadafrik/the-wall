@@ -1,7 +1,7 @@
 // Seed the wall with 40 anonymous notes.
 //
 // Run with:
-//   node --env-file=.env.local scripts/seed.mjs
+//   node --env-file=.env.local --experimental-strip-types scripts/seed.mjs
 //
 // Inserts directly via the service-role key, so the API moderation, rate
 // limit, and bot defenses are not touched. Each note is tagged ip_hash='seed'
@@ -9,6 +9,9 @@
 //   delete from notes where ip_hash = 'seed';
 
 import { createClient } from '@supabase/supabase-js';
+
+// The real placement algorithm — no hand-copied mirror to drift out of sync.
+import { pickNotePlacement } from '../src/lib/placement.ts';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -25,16 +28,6 @@ const SECTION_COLORS = {
   'things unsaid': ['#fce4ec', '#f8bbd0', '#f4a8c0', '#edc5cf', '#e8b3c2'],
   confessions:     ['#ede7f6', '#d1c4e9', '#b39ddb', '#c5b3df', '#bca0c7'],
 };
-
-const CANVAS_SIZE = 10_000;
-const CENTER = CANVAS_SIZE / 2;
-// Mirror of src/lib/placement.ts — keep these in sync with that file
-// and with place_note()'s defaults in supabase/schema.sql.
-const NO_OVERLAP_X = 175;
-const NO_OVERLAP_Y = 320;
-const MIN_OFFSET = 340;
-const MAX_OFFSET = 520;
-const MAX_ATTEMPTS = 60;
 
 const NOTES = [
   // venting
@@ -88,61 +81,27 @@ const NOTES = [
   { section: 'confessions', text: 'i prayed for my grandfather to die at the end. i couldnt watch him suffer anymore. i still dont know if that was love' },
 ];
 
-function randBetween(min, max) {
-  return Math.random() * (max - min) + min;
-}
-
-// Mirror of src/lib/placement.ts — no edge clamp (the wall scrolls forever),
-// stricter collision check so notes don't cover each other's text.
-function overlapsAny(existing, x, y) {
-  for (const n of existing) {
-    if (Math.abs(n.x - x) < NO_OVERLAP_X && Math.abs(n.y - y) < NO_OVERLAP_Y) {
-      return true;
+// Fetch every visible note's position, paging past PostgREST's silent
+// 1000-row cap. Placement must see the whole wall or it can drop a seed
+// note on top of a real one.
+async function fetchAllPositions(supabase) {
+  const PAGE = 1000;
+  const all = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('notes')
+      .select('x, y')
+      .eq('is_visible', true)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error('fetch failed:', error.message);
+      process.exit(1);
     }
+    all.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
   }
-  return false;
-}
-
-function pickPlacement(existing) {
-  const rotation = +randBetween(-4, 4).toFixed(2);
-  const z_index = Math.floor(Math.random() * 1000);
-  if (existing.length === 0) {
-    return {
-      x: Math.round(CENTER + randBetween(-200, 200)),
-      y: Math.round(CENTER + randBetween(-200, 200)),
-      rotation,
-      z_index,
-    };
-  }
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const anchor = existing[Math.floor(Math.random() * existing.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const distance = randBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 24;
-    const x = Math.round(anchor.x + Math.cos(angle) * distance);
-    const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlapsAny(existing, x, y)) {
-      return { x, y, rotation, z_index };
-    }
-  }
-  // Hard escape — keep checking overlap as we push further out.
-  for (let escape = 0; escape < 20; escape++) {
-    const anchor = existing[Math.floor(Math.random() * existing.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const distance = MAX_OFFSET + 1500 + escape * 200 + randBetween(0, 200);
-    const x = Math.round(anchor.x + Math.cos(angle) * distance);
-    const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlapsAny(existing, x, y)) {
-      return { x, y, rotation, z_index };
-    }
-  }
-  const anchor = existing[Math.floor(Math.random() * existing.length)];
-  const angle = Math.random() * Math.PI * 2;
-  return {
-    x: Math.round(anchor.x + Math.cos(angle) * 5000),
-    y: Math.round(anchor.y + Math.sin(angle) * 5000),
-    rotation,
-    z_index,
-  };
+  return all;
 }
 
 async function main() {
@@ -197,17 +156,13 @@ async function main() {
   }
 
   // Anchor new placements off whatever notes already exist (none, or real user notes).
-  const { data: existing } = await supabase
-    .from('notes')
-    .select('x, y')
-    .limit(400);
-  const positions = (existing ?? []).map((n) => ({ x: n.x, y: n.y }));
+  const positions = await fetchAllPositions(supabase);
 
   let inserted = 0;
   for (const note of NOTES) {
     const palette = SECTION_COLORS[note.section];
     const color = palette[Math.floor(Math.random() * palette.length)];
-    const placement = pickPlacement(positions);
+    const placement = pickNotePlacement(positions);
 
     const row = {
       text: note.text,

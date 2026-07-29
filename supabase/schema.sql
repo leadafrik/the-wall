@@ -174,12 +174,16 @@ begin
   -- magic number so we don't collide with other advisory locks.
   perform pg_advisory_xact_lock(872913041);
 
+  -- Range predicates (not abs()) so the planner can use notes_xy_idx.
+  -- Every insert runs this check while holding the advisory lock, so it
+  -- must stay index-fast as the table grows — an abs() scan here would
+  -- serialize all posts worldwide behind a full-table scan.
   if exists (
     select 1
     from notes
     where is_visible = true
-      and abs(x - p_x) < p_min_dx
-      and abs(y - p_y) < p_min_dy
+      and x > p_x - p_min_dx and x < p_x + p_min_dx
+      and y > p_y - p_min_dy and y < p_y + p_min_dy
   ) then
     return null;
   end if;

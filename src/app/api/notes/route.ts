@@ -191,7 +191,14 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: moderation.message }, { status: 422 });
   }
 
-  const trimmed = rawText.trim();
+  // Normalize line endings and collapse runs of blank lines. Notes render
+  // with white-space: pre-wrap, and the wall's CSS clamps their height — but
+  // there's no reason to store walls of empty lines either.
+  const trimmed = rawText
+    .trim()
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
   const ipHash = hashIp(ip);
   const service = getSupabaseServiceServer();
 
@@ -287,12 +294,18 @@ async function placeAndInsert(
     });
 
     if (rpc.error) {
-      // Function not installed in this Supabase project: fall back to a
-      // plain insert. Race-prone, but better than 500-ing the user.
-      console.warn(
-        `place_note RPC unavailable (${rpc.error.message}) — using plain insert`,
-      );
-      return plainInsertFallback(service, args, placement);
+      // Only fall back to a plain insert when the function genuinely isn't
+      // installed (schema.sql not applied yet) — PGRST202 = "function not
+      // found". Any other error (timeout, transient outage) must NOT skip
+      // the overlap guard; retry instead, and 503 if it keeps failing.
+      if (rpc.error.code === 'PGRST202') {
+        console.warn(
+          `place_note RPC not installed (${rpc.error.message}) — using plain insert`,
+        );
+        return plainInsertFallback(service, args, placement);
+      }
+      console.error(`place_note RPC error (attempt ${attempt}): ${rpc.error.message}`);
+      continue;
     }
 
     if (rpc.data) return rpc.data as Note;
@@ -305,13 +318,28 @@ async function placeAndInsert(
   return null;
 }
 
+// PostgREST silently caps un-ranged selects (1000 rows by default), so a
+// bare .select() stops "fetching every visible note" the moment the wall
+// passes 1000 notes — placement then proposes spots on top of unseen
+// neighbors and place_note() rejects nearly every attempt. Page through
+// explicitly so the snapshot really is complete.
+const NEIGHBOR_PAGE = 1000;
+
 async function fetchAllNeighbors(service: Service): Promise<Note[]> {
-  const { data } = await service
-    .from('notes')
-    .select('id,x,y')
-    .eq('is_visible', true);
-  // pickNotePlacement only reads x/y, so the partial shape is fine.
-  return (data ?? []) as unknown as Note[];
+  const all: Note[] = [];
+  for (let from = 0; ; from += NEIGHBOR_PAGE) {
+    const { data, error } = await service
+      .from('notes')
+      .select('id,x,y')
+      .eq('is_visible', true)
+      .order('id', { ascending: true })
+      .range(from, from + NEIGHBOR_PAGE - 1);
+    if (error || !data) break;
+    // pickNotePlacement only reads x/y, so the partial shape is fine.
+    all.push(...(data as unknown as Note[]));
+    if (data.length < NEIGHBOR_PAGE) break;
+  }
+  return all;
 }
 
 async function plainInsertFallback(

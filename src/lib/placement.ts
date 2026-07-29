@@ -1,7 +1,8 @@
 // Where to pin the next note on the wall.
 //
-// The wall scrolls infinitely (no edge clamp), but notes always anchor near
-// an existing note so the populated area stays cohesive.
+// Notes anchor near an existing note so the populated area stays cohesive,
+// and always land inside the auto-expanding canvas (the client clamps
+// panning to it, so out-of-bounds notes would be unreachable).
 //
 // Rule: a new note is never allowed to cover another note's text. We treat
 // each note as an axis-aligned bounding box and reject any placement whose
@@ -11,18 +12,25 @@
 import type { Note } from '@/types';
 
 export const NOTE_WIDTH = 150;
-export const NOTE_HEIGHT_APPROX = 300; // realistic upper bound for word-wrapped 280-char notes
+// Hard upper bound on rendered height — enforced by the CSS clamp on .note
+// (max-height + line-clamp in globals.css). Keep the two in sync.
+export const NOTE_HEIGHT_APPROX = 300;
 
-// Canvas auto-expands with population so it's always sized to ~30-40% full —
-// enough headroom for placement to find clean spots, no hardcoded ceiling.
-// One discrete bump per 1000 notes keeps growth predictable and avoids
-// constant resizing on every insert.
+// Canvas auto-expands with population. Space needed grows with *area*, so
+// the side length must grow with sqrt(noteCount) — the old linear-per-1000
+// formula fell behind the cluster's actual spread by ~2000 notes, leaving
+// notes stranded outside the pannable bounds. Sized so the wall stays at
+// ~20% fill: dense enough to feel alive, sparse enough that placement never
+// churns. Rounded up to 1000px steps so the size only changes occasionally.
 const CANVAS_BASE = 10_000;
-const CANVAS_STEP = 3_000;
-const CANVAS_NOTES_PER_STEP = 1000;
+const CANVAS_FILL_TARGET = 0.2;
+const CANVAS_ROUND = 1_000;
 
 export function canvasSizeForNotes(noteCount: number): number {
-  return CANVAS_BASE + Math.floor(noteCount / CANVAS_NOTES_PER_STEP) * CANVAS_STEP;
+  const side = Math.sqrt(
+    (noteCount * NO_OVERLAP_X * NO_OVERLAP_Y) / CANVAS_FILL_TARGET,
+  );
+  return Math.max(CANVAS_BASE, Math.ceil(side / CANVAS_ROUND) * CANVAS_ROUND);
 }
 
 // Legacy export — kept so anything importing CANVAS_SIZE doesn't break.
@@ -45,6 +53,11 @@ const MAX_OFFSET = 520;
 // guaranteed clear of any anchor cluster.
 const MAX_ATTEMPTS = 60;
 
+// Keep whole notes (plus rotation slack) inside the canvas edge. The client
+// clamps panning to the canvas bounds, so anything placed outside them is
+// unreachable — placement must never put a note there.
+const EDGE_MARGIN = 40;
+
 const CENTER = CANVAS_SIZE / 2;
 
 interface Candidate {
@@ -57,6 +70,17 @@ interface Candidate {
 export function pickNotePlacement(existing: Note[]): Candidate {
   const rotation = roundTo(randomBetween(-4, 4), 2);
   const z_index = Math.floor(Math.random() * 1000);
+
+  // Every candidate must land fully inside the *current* canvas — the
+  // client clamps panning to canvasSizeForNotes(count), so an out-of-bounds
+  // note would be unreachable. (x, y) is the note's top-left corner.
+  const size = canvasSizeForNotes(existing.length);
+  const minX = EDGE_MARGIN;
+  const maxX = size - NOTE_WIDTH - EDGE_MARGIN;
+  const minY = EDGE_MARGIN;
+  const maxY = size - NOTE_HEIGHT_APPROX - EDGE_MARGIN;
+  const inBounds = (x: number, y: number) =>
+    x >= minX && x <= maxX && y >= minY && y <= maxY;
 
   if (existing.length === 0) {
     return {
@@ -77,33 +101,41 @@ export function pickNotePlacement(existing: Note[]): Candidate {
       randomBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 24;
     const x = Math.round(anchor.x + Math.cos(angle) * distance);
     const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlapsAny(existing, x, y)) {
+    if (inBounds(x, y) && !overlapsAny(existing, x, y)) {
       return { x, y, rotation, z_index };
     }
   }
 
-  // Hard escape: pick the *farthest* anchor in a random direction, then go
-  // well past the cluster. This re-checks overlap because even the far
-  // ring isn't guaranteed empty.
+  // Hard escape: pick a random anchor and go well past the local cluster.
+  // This re-checks overlap because even the far ring isn't guaranteed empty.
   for (let escape = 0; escape < 20; escape++) {
     const anchor = existing[Math.floor(Math.random() * existing.length)];
     const angle = Math.random() * Math.PI * 2;
     const distance = MAX_OFFSET + 1500 + escape * 200 + randomBetween(0, 200);
     const x = Math.round(anchor.x + Math.cos(angle) * distance);
     const y = Math.round(anchor.y + Math.sin(angle) * distance);
+    if (inBounds(x, y) && !overlapsAny(existing, x, y)) {
+      return { x, y, rotation, z_index };
+    }
+  }
+
+  // Last resort: uniform random sampling across the whole canvas. The
+  // canvas is sized to ~20% full, so free space always exists — anchor
+  // walks just can't always find it from inside a dense cluster.
+  for (let sample = 0; sample < 200; sample++) {
+    const x = Math.round(randomBetween(minX, maxX));
+    const y = Math.round(randomBetween(minY, maxY));
     if (!overlapsAny(existing, x, y)) {
       return { x, y, rotation, z_index };
     }
   }
 
-  // Pathological: thousands of notes packed everywhere. Accept the last
-  // candidate. With NO_OVERLAP_X/Y honored everywhere up to this point,
-  // this only fires when the cluster has genuinely run out of room.
-  const anchor = existing[Math.floor(Math.random() * existing.length)];
-  const angle = Math.random() * Math.PI * 2;
+  // Pathological: nothing found anywhere. Return an in-bounds candidate and
+  // let the DB-side place_note() guard reject it (the API then retries or
+  // 503s) — never hand back a spot we know overlaps outside the guard.
   return {
-    x: Math.round(anchor.x + Math.cos(angle) * 5000),
-    y: Math.round(anchor.y + Math.sin(angle) * 5000),
+    x: Math.round(randomBetween(minX, maxX)),
+    y: Math.round(randomBetween(minY, maxY)),
     rotation,
     z_index,
   };

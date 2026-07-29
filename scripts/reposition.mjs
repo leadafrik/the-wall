@@ -6,8 +6,8 @@
 // forever. Real user notes and seeds are both repositioned.
 //
 // Run with:
-//   node --env-file=.env.local scripts/reposition.mjs            # dry run
-//   node --env-file=.env.local scripts/reposition.mjs --apply    # actually write
+//   node --env-file=.env.local --experimental-strip-types scripts/reposition.mjs            # dry run
+//   node --env-file=.env.local --experimental-strip-types scripts/reposition.mjs --apply    # actually write
 //
 // Idempotent: running twice just produces another clean layout. There is no
 // "undo" — the previous positions are overwritten, so make sure you mean it
@@ -15,6 +15,9 @@
 // if you ever need to roll back.)
 
 import { createClient } from '@supabase/supabase-js';
+
+// The real placement algorithm — no hand-copied mirror to drift out of sync.
+import { pickNotePlacement } from '../src/lib/placement.ts';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,69 +27,6 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1);
 }
 
-const CANVAS_SIZE = 10_000;
-const CENTER = CANVAS_SIZE / 2;
-// Mirror of src/lib/placement.ts — keep in sync.
-const NO_OVERLAP_X = 175;
-const NO_OVERLAP_Y = 320;
-const MIN_OFFSET = 340;
-const MAX_OFFSET = 520;
-const MAX_ATTEMPTS = 60;
-
-function randBetween(min, max) {
-  return Math.random() * (max - min) + min;
-}
-
-function overlapsAny(existing, x, y) {
-  for (const n of existing) {
-    if (Math.abs(n.x - x) < NO_OVERLAP_X && Math.abs(n.y - y) < NO_OVERLAP_Y) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function pickPlacement(existing) {
-  const rotation = +randBetween(-4, 4).toFixed(2);
-  const z_index = Math.floor(Math.random() * 1000);
-  if (existing.length === 0) {
-    return {
-      x: Math.round(CENTER + randBetween(-200, 200)),
-      y: Math.round(CENTER + randBetween(-200, 200)),
-      rotation,
-      z_index,
-    };
-  }
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const anchor = existing[Math.floor(Math.random() * existing.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const distance = randBetween(MIN_OFFSET, MAX_OFFSET) + attempt * 24;
-    const x = Math.round(anchor.x + Math.cos(angle) * distance);
-    const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlapsAny(existing, x, y)) {
-      return { x, y, rotation, z_index };
-    }
-  }
-  for (let escape = 0; escape < 20; escape++) {
-    const anchor = existing[Math.floor(Math.random() * existing.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const distance = MAX_OFFSET + 1500 + escape * 200 + randBetween(0, 200);
-    const x = Math.round(anchor.x + Math.cos(angle) * distance);
-    const y = Math.round(anchor.y + Math.sin(angle) * distance);
-    if (!overlapsAny(existing, x, y)) {
-      return { x, y, rotation, z_index };
-    }
-  }
-  const anchor = existing[Math.floor(Math.random() * existing.length)];
-  const angle = Math.random() * Math.PI * 2;
-  return {
-    x: Math.round(anchor.x + Math.cos(angle) * 5000),
-    y: Math.round(anchor.y + Math.sin(angle) * 5000),
-    rotation,
-    z_index,
-  };
-}
-
 async function main() {
   const apply = process.argv.includes('--apply');
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -94,22 +34,30 @@ async function main() {
   });
 
   console.log('fetching all visible notes…');
-  const { data, error } = await supabase
-    .from('notes')
-    .select('id, created_at, x, y, rotation, z_index')
-    .eq('is_visible', true)
-    .order('created_at', { ascending: true });
-  if (error) {
-    console.error('fetch failed:', error.message);
-    process.exit(1);
+  // Page past PostgREST's silent 1000-row cap — repositioning only *some*
+  // notes would leave the unfetched rest overlapping the new layout.
+  const PAGE = 1000;
+  const notes = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('notes')
+      .select('id, created_at, x, y, rotation, z_index')
+      .eq('is_visible', true)
+      .order('created_at', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error('fetch failed:', error.message);
+      process.exit(1);
+    }
+    notes.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
   }
-  const notes = data ?? [];
   console.log(`got ${notes.length} notes.`);
 
   const placed = [];
   const updates = [];
   for (const note of notes) {
-    const p = pickPlacement(placed);
+    const p = pickNotePlacement(placed);
     placed.push({ x: p.x, y: p.y });
     updates.push({
       id: note.id,
