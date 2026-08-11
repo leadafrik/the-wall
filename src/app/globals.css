@@ -130,7 +130,7 @@ button {
 
 .note {
   position: absolute;
-  width: 140px;
+  width: 200px;
   min-height: 120px;
   padding: 22px 14px 14px;
   box-shadow:
@@ -205,17 +205,19 @@ button {
   line-height: 1.4;
   word-break: break-word;
   white-space: pre-wrap;
-  /* Bound the preview so every note on the wall has a KNOWN maximum box —
-     this is what makes the no-overlap math in src/lib/placement.ts actually
-     hold. Long notes are clamped to a 5-line preview with an ellipsis; the
-     full text is always one click away in the expanded modal. max-height is
-     the hard guarantee (≈120px = 5 lines); line-clamp just makes the cut
-     land on a line boundary with a "…". */
+  /* Show the WHOLE note. The wall is 200px wide, so a full 280-char note
+     renders in ~15 lines and fits inside this cap — nothing real gets cut.
+     The cap exists only to keep the note box BOUNDED (which is what makes the
+     no-overlap math in src/lib/placement.ts hold): a pathological input — a
+     280-char single word, or a wall of blank lines — would otherwise render
+     700px+ tall. Those, and only those, clip at 16 lines with a "…"; the full
+     text is one click away in the expanded modal. max-height (384px) is the
+     hard guarantee, line-clamp lands the rare cut on a line boundary. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
-  max-height: 120px;
+  -webkit-line-clamp: 16;
+  line-clamp: 16;
+  max-height: 384px;
   overflow: hidden;
 }
 
@@ -752,6 +754,12 @@ button {
 
 .admin__bar button:hover { background: rgba(0, 0, 0, 0.12); }
 
+.admin__repo-msg {
+  margin: -6px 0 18px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
 .admin__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -853,7 +861,7 @@ button {
 }
 
 @media (max-width: 640px) {
-  /* Width stays 140px (same as desktop) so the placement geometry holds on
+  /* Width stays 200px (same as desktop) so the placement geometry holds on
      every screen — a wider mobile note would eat the horizontal no-overlap
      margin. Readability is kept via the font size below. */
   .note__text { font-size: 16px; }

@@ -18,6 +18,8 @@ export function AdminPanel() {
   const [notes, setNotes] = useState<AdminNote[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [repositioning, setRepositioning] = useState(false);
+  const [repoMsg, setRepoMsg] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -69,6 +71,37 @@ export function AdminPanel() {
     setNotes([]);
   }
 
+  // Re-space every visible note so none overlap — the one-click equivalent of
+  // scripts/reposition.mjs. Needed once after the note box grew; safe to run
+  // again anytime (idempotent, just re-tidies).
+  async function reposition() {
+    if (repositioning) return;
+    if (
+      !window.confirm(
+        're-tidy the whole wall?\n\nthis re-spaces every note so no two overlap. it rewrites their positions and cannot be undone.',
+      )
+    ) {
+      return;
+    }
+    setRepositioning(true);
+    setRepoMsg(null);
+    try {
+      const res = await fetch('/api/admin/reposition', { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRepoMsg(body?.error ?? 'reposition failed');
+        return;
+      }
+      setRepoMsg(
+        `re-tidied ${body.repositioned}/${body.total} notes` +
+          (body.failed ? ` — ${body.failed} failed, try again` : ' ✓'),
+      );
+      await load();
+    } finally {
+      setRepositioning(false);
+    }
+  }
+
   async function toggleVisibility(id: string, next: boolean) {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, is_visible: next } : n)));
     await fetch('/api/admin/notes', {
@@ -111,10 +144,20 @@ export function AdminPanel() {
         <button type="button" onClick={load} disabled={loading}>
           {loading ? 'loading…' : 'refresh'}
         </button>
+        <button
+          type="button"
+          onClick={reposition}
+          disabled={repositioning}
+          title="re-space every note so none overlap"
+        >
+          {repositioning ? 're-tidying…' : 're-tidy layout'}
+        </button>
         <button type="button" onClick={logout}>
           log out
         </button>
       </div>
+
+      {repoMsg && <p className="admin__repo-msg">{repoMsg}</p>}
 
       {stats && (
         <dl

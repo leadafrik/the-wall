@@ -26,14 +26,12 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 
 const CANVAS_SIZE = 10_000;
 const CENTER = CANVAS_SIZE / 2;
-// Mirror of src/lib/placement.ts — keep in sync.
-// Note: since the note box is now CSS-capped (see globals.css / placement.ts),
-// existing notes are already guaranteed non-overlapping and this script is
-// optional. It stays here to re-tidy the layout on demand.
-const NO_OVERLAP_X = 180;
-const NO_OVERLAP_Y = 210;
-const MIN_OFFSET = 340;
-const MAX_OFFSET = 520;
+// Mirror of src/lib/placement.ts — keep in sync. Same numbers the admin
+// "re-tidy layout" button uses (src/app/api/admin/reposition/route.ts).
+const NO_OVERLAP_X = 275;
+const NO_OVERLAP_Y = 475;
+const MIN_OFFSET = 500;
+const MAX_OFFSET = 760;
 const MAX_ATTEMPTS = 60;
 
 function randBetween(min, max) {
