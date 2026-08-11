@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { Note } from '@/types';
 
@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function ExpandedNote({ note, onClose }: Props) {
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -17,6 +19,30 @@ export function ExpandedNote({ note, onClose }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // One tap to send this note somewhere. On phones that opens the native share
+  // sheet; everywhere else it copies the link. The share preview is the note's
+  // own OG card (see note/[id]/opengraph-image.tsx), so what lands is the note,
+  // not a bare URL.
+  async function share() {
+    const url = `${window.location.origin}/note/${note.id}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'the wall', text: note.text, url });
+        return;
+      } catch (err) {
+        // User dismissed the share sheet — don't fall through to copying.
+        if ((err as Error)?.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard blocked (rare) — nothing else to do gracefully.
+    }
+  }
 
   return (
     <div className="expanded-backdrop" onClick={onClose} role="dialog" aria-modal="true">
@@ -34,9 +60,14 @@ export function ExpandedNote({ note, onClose }: Props) {
         <div className="expanded__text">{note.text}</div>
         <div className="expanded__meta">
           <span>{relativeTime(note.created_at)}</span>
-          <a className="expanded__permalink" href={`/note/${note.id}`}>
-            permalink
-          </a>
+          <span className="expanded__actions">
+            <button type="button" className="expanded__share" onClick={share}>
+              {copied ? 'link copied ✓' : 'share'}
+            </button>
+            <a className="expanded__permalink" href={`/note/${note.id}`}>
+              permalink
+            </a>
+          </span>
         </div>
         <button type="button" className="expanded__close" onClick={onClose}>
           close
