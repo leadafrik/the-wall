@@ -5,13 +5,24 @@
 //
 // Rule: a new note is never allowed to cover another note's text. We treat
 // each note as an axis-aligned bounding box and reject any placement whose
-// box would intersect an existing note's box. A tiny margin (~10px each
-// way) absorbs the bounding-box stretch caused by rotation up to ±4°.
+// box would intersect an existing note's box.
+//
+// The guarantee only holds because the rendered note box is BOUNDED. In CSS
+// (src/app/globals.css) `.note` is a fixed 140px wide and its text is clamped
+// to a 5-line preview (`.note__text` max-height ≈120px), so a note is at most
+// ~140 × ~176px regardless of how much text it carries. The full text lives in
+// the expanded modal on click. Earlier versions left the note height
+// unbounded — a 280-char note rendered ~500px tall while the math assumed
+// ~300px, so long notes overlapped their vertical neighbours no matter how the
+// placement search ran. Capping the box is what finally makes this hold.
 
 import type { Note } from '@/types';
 
-export const NOTE_WIDTH = 150;
-export const NOTE_HEIGHT_APPROX = 300; // realistic upper bound for word-wrapped 280-char notes
+// Rendered bounding box of a note, matching the CSS cap above. Use these as
+// the source of truth when deriving the no-overlap distances below. A little
+// slack over the measured ~176px height keeps the margin honest.
+export const NOTE_WIDTH = 140;
+export const NOTE_HEIGHT_APPROX = 185; // hard upper bound: 5-line clamped preview
 
 // Canvas auto-expands with population so it's always sized to ~30-40% full —
 // enough headroom for placement to find clean spots, no hardcoded ceiling.
@@ -29,12 +40,21 @@ export function canvasSizeForNotes(noteCount: number): number {
 // Treat as "the smallest canvas the wall ever shows," not "the actual size now."
 export const CANVAS_SIZE = CANVAS_BASE;
 
-// Center-to-center distances at or above which two notes can't visually
-// overlap. True upper bounds: a 150×NOTE_HEIGHT_APPROX note rotated ±4°
-// has a bounding box of ~166 × ~310, so these values include real slack.
-// Kept in sync with place_note()'s defaults in supabase/schema.sql.
-export const NO_OVERLAP_X = 175;
-export const NO_OVERLAP_Y = 320;
+// Anchor-to-anchor distances at or above which two notes provably cannot
+// visually overlap. Notes share a top-anchor and rotate up to ±4° about their
+// top-centre, so for a W×H box the true separation thresholds are:
+//
+//   thX = W·cos θ + 2·H·sin θ   (adversarial: both notes lean toward each other)
+//   thY = W·sin θ + H·cos θ
+//
+// With W=140, H=185, θ=4°: thX ≈ 166, thY ≈ 194. The values below sit above
+// those with ~15px of margin, and hold through θ=5° too. Because the true
+// thresholds (166/194) are below the OLD placement floor (175/320), every note
+// already on the wall is guaranteed non-overlapping under the capped box — no
+// reposition needed. Kept in sync with place_note()'s defaults in
+// supabase/schema.sql and the mirror in scripts/reposition.mjs.
+export const NO_OVERLAP_X = 180;
+export const NO_OVERLAP_Y = 210;
 
 // Starting search radius for the next note's anchor offset. Must be ≥ the
 // largest no-overlap distance or the first ring is guaranteed to fail.

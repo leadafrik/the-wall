@@ -161,8 +161,10 @@ create or replace function place_note(
   p_rotation  real,
   p_z_index   int,
   p_ip_hash   text,
-  p_min_dx    int default 175,
-  p_min_dy    int default 320
+  -- Defaults mirror NO_OVERLAP_X / NO_OVERLAP_Y in src/lib/placement.ts.
+  -- The API passes these explicitly; the defaults are a fallback only.
+  p_min_dx    int default 180,
+  p_min_dy    int default 210
 )
 returns notes
 language plpgsql
