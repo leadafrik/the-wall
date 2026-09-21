@@ -1,0 +1,156 @@
+{
+  "package": "humanitywall-read-article-pack",
+  "articles": [
+    {
+      "file": "01-where-to-vent-anonymously-online.md",
+      "title": "where to vent anonymously online",
+      "slug": "/read/vent-anonymously-online",
+      "primary_keyword": "where to vent anonymously online",
+      "cluster": "venting",
+      "wall_section": "/venting",
+      "word_count": 1191,
+      "meta_description": "A quiet guide to choosing somewhere to vent anonymously based on what you actually want back: nothing, listening, conversation, or help."
+    },
+    {
+      "file": "02-anonymous-confession-website.md",
+      "title": "what an anonymous confession website is actually for",
+      "slug": "/read/anonymous-confession-website",
+      "primary_keyword": "anonymous confession website",
+      "cluster": "confessions",
+      "wall_section": "/confessions",
+      "word_count": 1039,
+      "meta_description": "A privacy-first guide to anonymous confession: what people are looking for, what anonymity can and cannot mean, and when a confession needs more than a public post."
+    },
+    {
+      "file": "03-share-ideas-anonymously.md",
+      "title": "where to share half-formed ideas anonymously",
+      "slug": "/read/share-ideas-anonymously",
+      "primary_keyword": "where to share random ideas anonymously",
+      "cluster": "ideas",
+      "wall_section": "/ideas",
+      "word_count": 914,
+      "meta_description": "Not every thought needs to become content. A quiet guide to sharing a half-formed idea anonymously without a profile, performance, or finished point."
+    },
+    {
+      "file": "04-letter-you-will-never-send.md",
+      "title": "how to write a letter you'll never send",
+      "slug": "/read/letter-you-will-never-send",
+      "primary_keyword": "how to write a letter you'll never send",
+      "cluster": "things unsaid",
+      "wall_section": "/things-unsaid",
+      "word_count": 1144,
+      "meta_description": "A practical guide to writing an unsent letter when you have words for someone but sending them would be unwise, impossible, or beside the point."
+    },
+    {
+      "file": "05-keep-a-memory-alive.md",
+      "title": "how to keep the memory of someone you loved alive",
+      "slug": "/read/keep-a-memory-alive",
+      "primary_keyword": "how to keep the memory of a loved one alive",
+      "cluster": "memory",
+      "wall_section": "/memory",
+      "word_count": 1184,
+      "meta_description": "Quiet, practical ways to preserve the small details of someone you loved—voice, phrases, habits, stories and ordinary moments—without being told how grief should look."
+    },
+    {
+      "file": "06-things-i-never-said-to-my-dad.md",
+      "title": "things i never said to my dad",
+      "slug": "/read/things-i-never-said-to-my-dad",
+      "primary_keyword": "things i never said to my dad",
+      "cluster": "things unsaid",
+      "wall_section": "/things-unsaid",
+      "word_count": 1270,
+      "meta_description": "For the things you never said to your dad: pride, anger, approval, distance, gratitude, disappointment, love, and the ordinary words that got left behind."
+    },
+    {
+      "file": "07-things-i-never-said-to-my-mom.md",
+      "title": "things i never said to my mom",
+      "slug": "/read/things-i-never-said-to-my-mom",
+      "primary_keyword": "things i never said to my mom",
+      "cluster": "things unsaid",
+      "wall_section": "/things-unsaid",
+      "word_count": 1217,
+      "meta_description": "For the things you never said to your mom: gratitude, resentment, worry, guilt, distance, tenderness, and complicated love that doesn't fit into a greeting card."
+    },
+    {
+      "file": "08-letter-to-my-younger-self.md",
+      "title": "a letter to my younger self (and how to write your own)",
+      "slug": "/read/letter-to-my-younger-self",
+      "primary_keyword": "letter to my younger self",
+      "cluster": "memory",
+      "wall_section": "/memory",
+      "word_count": 1026,
+      "meta_description": "How to write a letter to your younger self without turning it into a lecture: remember the past self as a person, not a problem you now know how to solve."
+    },
+    {
+      "file": "09-unsent-messages-to-someone-who-died.md",
+      "title": "unsent messages to someone who died",
+      "slug": "/read/unsent-messages-to-someone-who-died",
+      "primary_keyword": "unsent messages to someone who died",
+      "cluster": "memory",
+      "wall_section": "/memory",
+      "word_count": 1050,
+      "meta_description": "Why people still write texts and letters to someone who died, what those messages often hold, and gentle ways to keep or release them without being told how grief should work."
+    },
+    {
+      "file": "10-moments-i-dont-want-to-forget.md",
+      "title": "moments i don't want to forget",
+      "slug": "/read/moments-i-dont-want-to-forget",
+      "primary_keyword": "moments i don't want to forget",
+      "cluster": "memory",
+      "wall_section": "/memory",
+      "word_count": 986,
+      "meta_description": "A simple way to capture a moment before its edges blur—without turning it into a perfect story, scrapbook project, or life lesson."
+    },
+    {
+      "file": "11-why-cant-i-tell-people-how-i-feel.md",
+      "title": "why can't i tell people how i really feel",
+      "slug": "/read/why-cant-i-tell-people-how-i-feel",
+      "primary_keyword": "why can't i tell people how i really feel",
+      "cluster": "venting",
+      "wall_section": "/venting",
+      "word_count": 1319,
+      "meta_description": "If you can explain your feelings in your head but not to another person, there may be ordinary reasons. A non-clinical guide to finding a lower-stakes first sentence."
+    },
+    {
+      "file": "12-forgive-someone-who-never-apologized.md",
+      "title": "how to forgive someone who never apologized",
+      "slug": "/read/forgive-someone-who-never-apologized",
+      "primary_keyword": "how to forgive someone who never apologized",
+      "cluster": "things unsaid",
+      "wall_section": "/things-unsaid",
+      "word_count": 1095,
+      "meta_description": "You do not need to force forgiveness to move forward. A quieter guide to living without the apology, accountability, or closure you deserved."
+    },
+    {
+      "file": "13-stop-bottling-up-feelings.md",
+      "title": "how to stop bottling up your feelings",
+      "slug": "/read/stop-bottling-up-feelings",
+      "primary_keyword": "how to stop bottling up feelings",
+      "cluster": "venting",
+      "wall_section": "/venting",
+      "word_count": 1271,
+      "meta_description": "If 'just open up' feels impossible, start smaller. Practical, non-clinical ways to move from total silence toward language without dumping everything on one person."
+    },
+    {
+      "file": "14-half-formed-ideas.md",
+      "title": "half-formed ideas i never finished thinking through",
+      "slug": "/read/half-formed-ideas",
+      "primary_keyword": "half-formed ideas i never finished thinking through",
+      "cluster": "ideas",
+      "wall_section": "/ideas",
+      "word_count": 952,
+      "meta_description": "An unfinished thought is still a thought. A quiet argument for keeping fragments, questions and almost-ideas without forcing them to become projects or opinions."
+    },
+    {
+      "file": "15-how-to-write-a-confession.md",
+      "title": "how to write a confession (that isn't a love letter)",
+      "slug": "/read/how-to-write-a-confession",
+      "primary_keyword": "how to write a confession letter",
+      "cluster": "confessions",
+      "wall_section": "/confessions",
+      "word_count": 1172,
+      "meta_description": "A confession does not need drama or perfect prose. A practical structure for admitting something honestly without disguising an excuse as accountability."
+    }
+  ],
+  "notes": "Research-grounded editorial drafts. Community sources inform patterns; examples are original/composited."
+}

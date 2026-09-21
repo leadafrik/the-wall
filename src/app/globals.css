@@ -785,6 +785,15 @@ button {
 .read__body li { margin: 0 0 8px; }
 .read__body strong { font-weight: 600; }
 .read__body em { font-style: italic; }
+.read__body blockquote {
+  margin: 0 0 16px;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid rgba(0, 0, 0, 0.18);
+  font-style: italic;
+  opacity: 0.85;
+}
+.read__body blockquote p { margin: 0 0 8px; }
+.read__body blockquote p:last-child { margin: 0; }
 .read__body a {
   color: inherit;
   text-decoration: underline;
