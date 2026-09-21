@@ -643,7 +643,10 @@ export function WallClient({
 
         <header className="wall__header">
           <a href="/" className="wall__title">the wall</a>
-          <a href="/about" className="wall__about">about</a>
+          <nav className="wall__nav">
+            <a href="/read" className="wall__about">read</a>
+            <a href="/about" className="wall__about">about</a>
+          </nav>
         </header>
 
         {hintVisible && (

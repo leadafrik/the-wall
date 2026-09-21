@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+import { getAllArticles } from '@/lib/read';
 import { SECTIONS, sectionToSlug } from '@/lib/sections';
 
 const SITE = 'https://humanitywall.org';
@@ -9,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE}/`,                 lastModified: now, changeFrequency: 'hourly', priority: 1.0 },
     { url: `${SITE}/about`,            lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${SITE}/read`,             lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/legal/terms`,      lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE}/legal/privacy`,    lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE}/legal/takedown`,   lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
@@ -17,6 +19,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'hourly' as const,
       priority: 0.8,
+    })),
+    ...getAllArticles().map((a) => ({
+      url: `${SITE}/read/${a.slug}`,
+      lastModified: a.updated ? new Date(a.updated) : now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
     })),
   ];
 }

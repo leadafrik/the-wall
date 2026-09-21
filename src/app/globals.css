@@ -97,6 +97,13 @@ button {
   opacity: 0.7;
 }
 
+.wall__nav {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  pointer-events: none;
+}
+
 .wall__about {
   font-size: 14px;
   opacity: 0.55;
@@ -698,6 +705,173 @@ button {
   text-decoration: none;
 }
 .legal__back:hover { opacity: 1; }
+
+/* -------- Read (content / articles) -------- */
+
+.read {
+  min-height: 100vh;
+  padding: 0 24px 80px;
+  color: var(--wall-ink);
+}
+
+.read__topbar {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 20px 0 28px;
+  font-family: var(--font-serif);
+  font-size: 14px;
+}
+
+.read__home {
+  font-family: var(--font-handwritten);
+  font-size: 22px;
+  opacity: 0.75;
+}
+.read__home:hover { opacity: 1; }
+
+.read__crumb { opacity: 0.5; }
+.read__crumb::before { content: '·'; margin-right: 10px; opacity: 0.6; }
+.read__crumb--link:hover { opacity: 0.9; text-decoration: underline; }
+
+.read__inner {
+  max-width: 680px;
+  margin: 0 auto;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.read__title {
+  font-family: var(--font-handwritten);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.15;
+  margin: 8px 0 14px;
+}
+
+.read__lede {
+  font-style: italic;
+  opacity: 0.82;
+  margin: 0 0 8px;
+}
+
+.read__byline {
+  font-size: 13px;
+  opacity: 0.5;
+  margin: 0 0 28px;
+}
+
+/* article body (rendered markdown) */
+.read__body > :first-child { margin-top: 0; }
+.read__body h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1.25;
+  margin: 40px 0 10px;
+}
+.read__body h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 26px 0 6px;
+  opacity: 0.85;
+}
+.read__body p { margin: 0 0 16px; }
+.read__body ul { margin: 0 0 16px; padding-left: 22px; }
+.read__body li { margin: 0 0 8px; }
+.read__body strong { font-weight: 600; }
+.read__body em { font-style: italic; }
+.read__body a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  opacity: 0.9;
+}
+.read__body a:hover { opacity: 1; }
+
+/* soft CTA into the wall */
+.read__cta {
+  margin: 40px 0 8px;
+  padding: 20px 22px;
+  background: rgba(0, 0, 0, 0.035);
+  border-radius: 6px;
+}
+.read__cta p { margin: 0; }
+.read__cta-links {
+  margin-top: 12px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-handwritten);
+  font-size: 20px;
+}
+.read__cta-links a { opacity: 0.85; }
+.read__cta-links a:hover { opacity: 1; }
+
+/* crisis / safety note */
+.read__crisis {
+  margin: 36px 0 8px;
+  padding: 16px 20px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+.read__crisis p { margin: 0 0 8px; }
+.read__crisis ul { margin: 0; padding-left: 20px; }
+.read__crisis li { margin: 0 0 4px; }
+.read__crisis a { color: inherit; text-decoration: underline; }
+
+/* related + back */
+.read__related { margin: 44px 0 0; }
+.read__related h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 16px;
+  opacity: 0.7;
+  margin: 0 0 8px;
+}
+.read__related ul { margin: 0; padding-left: 20px; }
+.read__related a { color: inherit; text-decoration: underline; opacity: 0.9; }
+.read__related a:hover { opacity: 1; }
+
+.read__back { margin-top: 40px; font-size: 15px; }
+.read__back a { color: inherit; opacity: 0.6; }
+.read__back a:hover { opacity: 1; text-decoration: underline; }
+
+/* hub */
+.read__cluster { margin: 34px 0 0; }
+.read__cluster-title {
+  font-family: var(--font-handwritten);
+  font-weight: 400;
+  font-size: 26px;
+  margin: 0 0 2px;
+}
+.read__cluster-line { font-style: italic; opacity: 0.7; margin: 0 0 10px; font-size: 16px; }
+.read__list { list-style: none; margin: 0 0 12px; padding: 0; }
+.read__list li { margin: 0 0 8px; }
+.read__list a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.read__list a:hover { opacity: 1; }
+.read__tag { font-size: 13px; font-style: italic; opacity: 0.5; }
+.read__section-link {
+  font-family: var(--font-handwritten);
+  font-size: 19px;
+  opacity: 0.7;
+}
+.read__section-link:hover { opacity: 1; }
+.read__footnote {
+  margin: 48px 0 0;
+  font-size: 14px;
+  font-style: italic;
+  opacity: 0.55;
+}
+.read__footnote a { color: inherit; text-decoration: underline; }
 
 /* -------- Admin -------- */
 
