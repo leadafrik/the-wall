@@ -882,6 +882,19 @@ button {
 }
 .read__footnote a { color: inherit; text-decoration: underline; }
 
+/* faq */
+.faq { margin: 8px 0 0; }
+.faq__item { margin: 0 0 26px; }
+.faq__q {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.3;
+  margin: 0 0 6px;
+}
+.faq__a { margin: 0; }
+.faq__a > :last-child { margin-bottom: 0; }
+
 /* -------- Admin -------- */
 
 .admin-login {

@@ -86,9 +86,10 @@ export default function ReadHub() {
         ))}
 
         <p className="read__footnote">
+          new here? the <Link href="/faq">faq</Link> explains how the wall works.
           this is a place to read and reflect, not a substitute for professional
-          support. if you’re struggling, a counselor or a crisis line can help in
-          ways a page can’t — see <Link href="/about">about</Link> for resources.
+          support — if you’re struggling, a counselor or a crisis line can help in
+          ways a page can’t.
         </p>
       </div>
     </main>

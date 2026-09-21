@@ -19,7 +19,11 @@ export default function About() {
         <a className="about__contact" href="mailto:contact@humanitywall.org">
           contact@humanitywall.org
         </a>
-        <nav className="about__legal" aria-label="legal">
+        <nav className="about__legal" aria-label="more from the wall">
+          <a href="/read">read</a>
+          <span aria-hidden>·</span>
+          <a href="/faq">faq</a>
+          <span aria-hidden>·</span>
           <a href="/legal/terms">terms</a>
           <span aria-hidden>·</span>
           <a href="/legal/privacy">privacy</a>
