@@ -10,7 +10,11 @@ related:
   - "keep-a-memory-alive"
   - "unsent-messages-to-someone-who-died"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i remember a moment before i forget it?"
+    a: "write one detail — a smell, a sentence someone said, the light in the room — rather than the whole scene. the detail is usually what brings the rest back."
+  - q: "why do i forget moments i wanted to keep?"
+    a: "ordinary memories fade faster than we expect because nothing marks them as important at the time. writing one line down is often enough to hold onto them."
 ---
 Memory does not usually disappear all at once.
 

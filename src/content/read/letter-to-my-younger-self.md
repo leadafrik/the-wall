@@ -10,7 +10,11 @@ related:
   - "keep-a-memory-alive"
   - "moments-i-dont-want-to-forget"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i write a letter to my younger self?"
+    a: "write to them as a person, not a problem you've since solved. say what you wish someone had told you, skip the lecture, and one honest paragraph is plenty."
+  - q: "what do you say in a letter to your younger self?"
+    a: "usually reassurance, a warning you wish you'd had, or simple compassion for what they were carrying. there is no right content — only what you would have wanted to hear."
 ---
 The easiest way to write badly to your younger self is to act like you won.
 

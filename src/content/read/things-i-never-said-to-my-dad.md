@@ -10,7 +10,11 @@ related:
   - "letter-you-will-never-send"
   - "things-i-never-said-to-my-mom"
 safety: "none"
-faqs: []
+faqs:
+  - q: "what are the things people never say to their fathers?"
+    a: "often it is pride, wanting his approval, an old anger, or a love shown through actions instead of words. the words go unsaid because of distance, timing or fear — not because they were not real."
+  - q: "how do i say something to my dad i never got to say?"
+    a: "you can say it to him, or write it down without sending it. if he's gone, the wall's things unsaid or memory sections are places the words can still exist."
 ---
 Some relationships are full of words.
 

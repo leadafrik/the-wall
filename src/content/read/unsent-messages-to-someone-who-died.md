@@ -10,7 +10,13 @@ related:
   - "keep-a-memory-alive"
   - "moments-i-dont-want-to-forget"
 safety: "none"
-faqs: []
+faqs:
+  - q: "is it healthy to write messages to someone who died?"
+    a: "many people do, and grief research recognizes that keeping an inner connection to someone who died is common. it is a way to say what is left unsaid, not a sign anything is wrong."
+  - q: "what do you write in a message to someone who passed away?"
+    a: "often what has happened since, the thing you never got to say, or simply that you miss them. it can be one line; it does not have to be a letter."
+  - q: "where can i leave a message for someone who died?"
+    a: "you can keep it in a phone draft, a letter, or leave it anonymously in the wall's memory section — somewhere the words can exist without being sent."
 ---
 Sometimes grief reaches for the phone.
 

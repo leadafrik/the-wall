@@ -9,7 +9,11 @@ updated: "2026-09-21"
 related:
   - "share-ideas-anonymously"
 safety: "none"
-faqs: []
+faqs:
+  - q: "is it worth writing down an unfinished idea?"
+    a: "yes — a fragment or a question you can't answer yet is still worth keeping. writing it down means it doesn't disappear the moment you look away."
+  - q: "where can i put half-formed thoughts?"
+    a: "the wall's ideas section is for exactly this: sparks, questions and almost-ideas, with no pressure to finish them."
 ---
 Some thoughts disappear because they were bad.
 

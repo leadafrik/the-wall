@@ -10,7 +10,11 @@ related:
   - "letter-you-will-never-send"
   - "things-i-never-said-to-my-dad"
 safety: "none"
-faqs: []
+faqs:
+  - q: "what do people wish they'd said to their mothers?"
+    a: "commonly gratitude, worry, guilt, or a complicated love that doesn't fit a greeting card. it is ordinary for the biggest things to be the hardest to say out loud."
+  - q: "where can i write something i never told my mom?"
+    a: "you can leave it anonymously in the wall's things unsaid section — she doesn't have to see it for the words to matter."
 ---
 There are sentences people save for mothers because they feel too large, too late, too ungrateful, too sentimental or too dangerous to say.
 

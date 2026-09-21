@@ -838,6 +838,23 @@ button {
 .read__crisis a { color: inherit; text-decoration: underline; }
 
 /* related + back */
+.read__faq { margin: 44px 0 0; }
+.read__faq > h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 20px;
+  margin: 0 0 14px;
+}
+.read__faq dl { margin: 0; }
+.read__faq-item { margin: 0 0 18px; }
+.read__faq dt {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+.read__faq dd { margin: 0; opacity: 0.9; }
+
 .read__related { margin: 44px 0 0; }
 .read__related h2 {
   font-family: var(--font-serif);

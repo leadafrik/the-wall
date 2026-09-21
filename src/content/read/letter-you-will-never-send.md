@@ -11,7 +11,13 @@ related:
   - "things-i-never-said-to-my-mom"
   - "forgive-someone-who-never-apologized"
 safety: "none"
-faqs: []
+faqs:
+  - q: "what is an unsent letter?"
+    a: "it's a letter you write for release, not delivery — a way to say what you didn't get to say, without sending it to the person."
+  - q: "does writing a letter you never send actually help?"
+    a: "many people find that putting the words down, even unsent, takes some of the weight off. it is expression, not a guarantee of closure — and you can write the whole thing or just the one sentence that stayed with you."
+  - q: "where can i leave an unsent letter?"
+    a: "you can leave it anonymously in the wall's things unsaid section, where the words can exist without being delivered to anyone."
 ---
 An unsent letter is useful because it separates two decisions people often collapse into one:
 

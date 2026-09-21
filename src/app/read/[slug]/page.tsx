@@ -126,6 +126,20 @@ export default async function Article({
 
         {article.safety !== 'none' && <CrisisNote level={article.safety} />}
 
+        {article.faqs.length > 0 && (
+          <section className="read__faq" aria-label="questions people ask">
+            <h2>questions people ask</h2>
+            <dl>
+              {article.faqs.map((f, i) => (
+                <div className="read__faq-item" key={i}>
+                  <dt>{f.q}</dt>
+                  <dd>{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+
         <aside className="read__cta">
           <p>{SECTION_CTA[article.section]}</p>
           <p className="read__cta-links">

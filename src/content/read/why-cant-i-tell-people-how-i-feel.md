@@ -11,7 +11,11 @@ related:
   - "stop-bottling-up-feelings"
   - "letter-you-will-never-send"
 safety: "none"
-faqs: []
+faqs:
+  - q: "why can't i tell people how i really feel?"
+    a: "often it is ordinary reasons — fear of being a burden, fear of judgment, or simply not having the words yet — not a sign something is wrong with you."
+  - q: "how do i start saying how i feel?"
+    a: "start smaller than an explanation: write the one sentence under the most pressure, somewhere low-stakes, before you try to say it to a person."
 ---
 You may know exactly what you feel until somebody asks.
 

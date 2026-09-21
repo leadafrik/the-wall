@@ -10,7 +10,11 @@ related:
   - "vent-anonymously-online"
   - "why-cant-i-tell-people-how-i-feel"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i stop bottling up my feelings?"
+    a: "start small instead of opening up all at once — write one honest sentence somewhere private or anonymous before you try to say it to a person."
+  - q: "why do i bottle up my emotions?"
+    a: "often it is a habit built from not wanting to burden people or seem weak. it is common, and it can ease with low-stakes ways to let a little out at a time."
 ---
 “Stop bottling it up” sounds useful until you ask what the alternative is.
 

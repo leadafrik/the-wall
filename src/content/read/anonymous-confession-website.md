@@ -10,7 +10,13 @@ related:
   - "how-to-write-a-confession"
   - "forgive-someone-who-never-apologized"
 safety: "none"
-faqs: []
+faqs:
+  - q: "what is an anonymous confession website?"
+    a: "it's a place to admit something without attaching your name or an account to it. on the wall you write the confession, leave it, and it stands on its own among others."
+  - q: "is confessing online anonymously safe?"
+    a: "it can be, as long as the site needs no account and you leave out anything identifying — names, places, dates, someone else's private details. a public post can be seen or copied even when it isn't tied to your name."
+  - q: "what's the difference between anonymous and private?"
+    a: "anonymous means not attached to your identity; private means only you can see it. a note on the wall is anonymous but public, so write it as something the world can read."
 ---
 A confession is not always an admission of a crime.
 

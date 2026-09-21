@@ -11,7 +11,13 @@ related:
   - "moments-i-dont-want-to-forget"
   - "letter-to-my-younger-self"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i keep the memory of someone who died alive?"
+    a: "write down the small, ordinary details first — their phrases, their voice, a habit, an ordinary afternoon. those are the parts people are most afraid of losing, and one sentence is enough."
+  - q: "is it normal to be afraid of forgetting someone who died?"
+    a: "yes — usually the fear isn't of forgetting they existed, but of losing the small details. writing them down gives them somewhere to live outside your memory."
+  - q: "what should i write down about someone i lost?"
+    a: "start with things no obituary would hold: the way they laughed, what they always ordered, a saying only they used. you don't have to decide what is significant."
 ---
 People often say they are afraid of forgetting someone who died.
 

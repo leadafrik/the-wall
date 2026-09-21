@@ -9,7 +9,11 @@ updated: "2026-09-21"
 related:
   - "half-formed-ideas"
 safety: "none"
-faqs: []
+faqs:
+  - q: "where can i share a random thought anonymously?"
+    a: "the wall's ideas section is for exactly that — a spark, a question, an unfinished thought — with no account and no feed to perform for."
+  - q: "do i have to finish an idea before sharing it?"
+    a: "no. an unfinished thought is still a thought. you can leave half of one and never come back to it."
 ---
 Not every thought wants to become a post.
 

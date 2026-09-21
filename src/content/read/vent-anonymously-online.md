@@ -10,7 +10,13 @@ related:
   - "why-cant-i-tell-people-how-i-feel"
   - "stop-bottling-up-feelings"
 safety: "none"
-faqs: []
+faqs:
+  - q: "where can i vent anonymously online for free?"
+    a: "the wall lets you vent anonymously with no account and no cost — you write a note, it stays there, and nobody has to reply. leave out names or details that could identify you or anyone else."
+  - q: "is it better to vent to a stranger than to someone i know?"
+    a: "it depends what you want back. a stranger or an anonymous wall carries no consequences and won't turn your vent into a conversation; a friend can reply but also has to see you tomorrow. neither is better — they do different jobs."
+  - q: "does venting actually make you feel better?"
+    a: "for some people, getting a feeling out of their head and into words eases the pressure. it isn't treatment and it won't fix what upset you, but naming it somewhere outside yourself can be enough to breathe."
 ---
 Sometimes the problem is not that you have nobody in your life. It is that the thing you need to say does not fit cleanly into any of those relationships.
 

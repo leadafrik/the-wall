@@ -10,7 +10,11 @@ related:
   - "letter-you-will-never-send"
   - "anonymous-confession-website"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i forgive someone who never apologized?"
+    a: "forgiveness here isn't excusing them or reconciling — it's setting down what you're carrying so it stops costing you. writing to them, even unsent, can be a way to start."
+  - q: "can you move on without an apology?"
+    a: "yes. an apology you never got isn't required for you to stop carrying the weight — and it's fine if 'i forgive them' isn't fully true yet."
 ---
 Start with a possibility most forgiveness articles rush past:
 

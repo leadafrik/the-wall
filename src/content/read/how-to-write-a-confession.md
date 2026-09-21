@@ -10,7 +10,11 @@ related:
   - "anonymous-confession-website"
   - "forgive-someone-who-never-apologized"
 safety: "none"
-faqs: []
+faqs:
+  - q: "how do i write a confession?"
+    a: "say the true thing plainly — honesty matters more than eloquence. name what you did or felt without dressing an excuse up as accountability, and it can be a single sentence."
+  - q: "how do i confess something anonymously?"
+    a: "write it without identifying yourself or anyone else and leave it somewhere anonymous, like the wall's confessions section. keep out names, places and details that could point back."
 ---
 Search “how to write a confession letter” and you will often find romantic advice.
 
